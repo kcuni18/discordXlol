@@ -77,7 +77,10 @@ def winrate_by_name(name):
 def winrate_by_team(players):
     players_puuid = []
     for player in players:
-        players_puuid.append(summoners.get_puuid_by_discord_name(player))
+        temp = summoners.get_puuid_by_discord_name(player)
+        if temp is None:
+            return [player, " is not linked"]
+        players_puuid.append(temp)
     team = generate_team_id(players_puuid)
     wins = 0
     losses = 0

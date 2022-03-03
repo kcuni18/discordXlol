@@ -55,8 +55,12 @@ async def on_message(message):
                         return
             for i in range(len(players)):
                 players[i] = int(players[i][3:21])
-            print(players)
-            await message.channel.send(lol.winrate_by_team(players))
+            reply = lol.winrate_by_team(players)
+            print(reply)
+            if len(reply) != 1:
+                await message.channel.send(tag(reply[0]) + " is not linked!")
+            else:
+                await message.channel.send(message)
         elif temp[0] == "help":
             await message.channel.send("`-record \"Summoner Name\" \"Number of games\"\nExample: -record Legit IRL 3\tWill record last 3 custom games from Legit IRL\"\n\n")
             await message.channel.send("-winrate \"Summoner Name\"\nExample: -winrate Takeshi Yuudai 3\tWill show 0% sepse hideki never wins uvuvu\n\n")

@@ -134,8 +134,9 @@ def winrate_for_best_teams(team_count=1, min_games=1):
 
 
 def record_games(name, count=1):
+    total = count
     not_counted = 0
-    puuid = summoners.get_puuid_by_name(name.lower())
+    puuid = summoners.get_puuid_by_discord_name(name)
     match_ids = lol.get_match_ids(puuid, 100)
     for match_id in match_ids:
         match_info = lol.get_match_info(match_id)
@@ -166,7 +167,7 @@ def record_games(name, count=1):
             count = count - 1
             if count == 0:
                 break
-        return "Out of {} games, {} were new and recorded".format(count, not_counted)
+    return "Out of {} games, {} were new and recorded".format(total, not_counted)
 
 
 def unlink_account(discord_id):

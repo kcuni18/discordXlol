@@ -1,14 +1,103 @@
-import discord
 import core as lol
 import os
+from discord.ext import commands
 
-client = discord.Client()
+
+# client = discord.Client()
+bot = commands.Bot(command_prefix="-")
 
 
 def tag(user_id):
     return "<@{}>".format(user_id)
 
 
+@bot.command()
+async def test(ctx, *args):
+    await ctx.send('{} arguments: {}'.format(len(args), ', '.join(args)))
+    print('{} arguments: {}'.format(len(args), ', '.join(args)))
+
+
+@bot.command()
+async def tagme(ctx, *args):
+    if len(args) == 0:
+        await ctx.send(tag(ctx.author.id))
+    else:
+        await ctx.send(" ".join([tagged for tagged in args]))
+
+
+@bot.command()
+async def winrate(ctx, *args):
+    if len(args) == 0:
+        await ctx.send(lol.winrate_by_discord(ctx.author.id))
+        return
+    await ctx.send("\n".join(lol.winrate_by_discord(int(user[3:21])) for user in args))
+
+
+@bot.command()
+async def team(ctx, *args):
+    players = []
+    if len(args) != 5:
+        ctx.send("You need 5 players for a team")
+        return
+    for player in args:
+        if player[0:3] != "<@!":
+            await ctx.send("You have to tag players using @ sign")
+            return
+    for i in range(len(args)):
+        players.append(int(args[i][3:21]))
+    reply = lol.winrate_by_team(players)
+    print(type(reply))
+    if str(type(reply)) == "<class 'list'>":
+        await ctx.send(tag(reply[0]) + " is not linked!")
+    else:
+        await ctx.send(reply)
+
+
+@bot.command()
+async def bestteam(ctx, *args):
+    await ctx.send(lol.winrate_for_best_teams(int(args[0]), int(args[1])))
+
+
+@bot.command()
+async def hesht(ctx, *args):
+    pass
+
+
+@bot.command()
+async def findlink(ctx, *args):
+    if len(args) == 0:
+        await ctx.send(lol.find_account(ctx.author.id))
+        return
+    await ctx.send("\n".join(lol.find_account(int(user[3:21])) for user in args))
+
+
+@bot.command()
+async def mylink(ctx):
+    await ctx.send(lol.find_account(ctx.author.id))
+
+
+@bot.command()
+async def unlink(ctx):
+    await ctx.send(lol.unlink_account(ctx.author.id))
+
+
+@bot.command()
+async def link(ctx, *args):
+    if len(args) == 0:
+        await ctx.send("You must specify a name: -link Hidogu")
+        return
+    username = " ".join(word for word in args)
+    await ctx.send(lol.link_account(ctx.author.id, username))
+
+
+@bot.command()
+async def record(ctx, *args):
+    if len(args) == 1:
+        await ctx.send(lol.record_games(ctx.author.id, int(args[0])))
+        return
+    await ctx.send(lol.record_games(int(args[0][3:21]), int(args[1])))
+
+"""
 @client.event
 async def on_ready():
     print('Logged in as')
@@ -80,6 +169,6 @@ async def on_message(message):
             await message.channel.send(lol.link_account(message.author.id, temp[1]))
         if temp[0] == "unlink":
             await message.channel.send(lol.unlink_account(message.author.id))
+"""
 
-
-client.run(os.environ["TOKEN"])
+bot.run(os.environ["TOKEN"])

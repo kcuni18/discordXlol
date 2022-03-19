@@ -2,3 +2,6 @@ __pycache__
 api_key.txt
 summoners.json
 matches.bin
+.venv/
+.vscode/
+*test*

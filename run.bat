@@ -2,4 +2,4 @@
 
 CALL init.bat
 
-python test.py
+python src\main.py

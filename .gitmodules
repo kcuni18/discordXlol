@@ -1,3 +1,3 @@
-[submodule "c_db_py"]
-	path = c_db_py
-	url = https://github.com/peTheProgrammer/c_db_py.git
+[submodule "py_c_db"]
+	path = py_c_db
+	url = https://github.com/peTheProgrammer/py_c_db.git

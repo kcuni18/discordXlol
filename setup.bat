@@ -6,7 +6,7 @@ if NOT EXIST .venv (
 CALL init.bat
 python -m pip install -r dependencies_py.txt
 
-cd c_db_py
+cd py_c_db
 CALL build.bat
 python setup.py install
 cd ..

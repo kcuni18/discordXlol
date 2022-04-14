@@ -1,129 +1,44 @@
-import league_api as lol
-import json
+import database as db
+import discord
 
-file_name = "summoners.json"
-data = None
-summoner_to_data = None
-puuid_to_data = None
-discord_to_data = None
+def get_by_name(name: str):
+	data = db.select('SELECT * FROM summoner WHERE name=:name', {'name':name})
+	if len(data) != 1:
+		raise KeyError(f'Summoner name {name} is not registered.')
+	return data[0]
 
+def get_by_discord_user(discord_user: discord.User):
+	data = db.select('SELECT * FROM summoner WHERE discord_id=:discord_id', {'discord_id':discord_user.id})
+	if len(data) != 1:
+		raise KeyError(f'User {discord_user.mention} is not linked to any summoner.')
+	return data[0]
 
-def init():
-    try:
-        read()
-    except FileNotFoundError:
-        global data
-        data = []
-        global summoner_to_data
-        summoner_to_data = {}
-        global puuid_to_data
-        puuid_to_data = {}
-        with open(file_name, 'w') as file:
-            file.write(json.dumps(data))
+def get_by_puuid(puuid: str):
+	data = db.select('SELECT * FROM summoner WHERE puuid=:puuid', {'puuid':puuid})
+	if len(data) != 1:
+		raise KeyError(f'Summoner with puuid {puuid} is not registered.')
+	return data[0]
 
+def get_name_list(string: str):
+	data = db.select('SELECT name FROM summoner WHERE name LIKE :string', {'string':string})
+	return [row['name'] for row in data]
 
-def read():
-    global data
-    with open(file_name, 'r') as file:
-        data = json.loads(file.read())
-    global summoner_to_data
-    summoner_to_data = {}
-    global puuid_to_data
-    puuid_to_data = {}
-    global discord_to_data
-    discord_to_data = {}
-    for obj in data:
-        summoner_to_data[obj["name"]] = obj
-        puuid_to_data[obj["puuid"]] = obj
-        if obj["discord_name"] == 0:
-            continue
-        discord_to_data[obj["discord_name"]] = obj
+def set_discord_user(name: str, discord_user: discord.User):
+	db.execute('UPDATE summoner SET discord_id=:discord_id WHERE name=:name', {'name':name, 'discord_id':discord_user.id})
 
+def is_registered(name: str):
+	try:
+		get_by_name(name)
+		return True
+	except KeyError:
+		return False
 
-def write():
-    with open(file_name, 'w') as file:
-        file.write(json.dumps(data))
-
-
-def get_name_by_puuid(puuid):
-    try:
-        return puuid_to_data[puuid]["name"]
-    except KeyError:
-        return None
-
-
-def get_discord_name_by_puuid(puuid):
-    try:
-        return puuid_to_data[puuid]["discord_name"]
-    except KeyError:
-        return None
-
-
-def get_puuid_by_discord_name(dname):
-    try:
-        return discord_to_data[dname]["puuid"]
-    except KeyError:
-        return None
-
-
-def get_puuid_by_name(name):
-    try:
-        return summoner_to_data[name]["puuid"]
-    except KeyError:
-        return None
-
-
-def get_discord_name_by_name(name):
-    try:
-        return summoner_to_data[name]["discord_name"]
-    except KeyError:
-        return None
-
-
-def add_by_name(name):
-    summoner_data = lol.get_summoner_info_by_name(name)
-    puuid = summoner_data["puuid"]
-    data.append(summoner_data)
-    summoner_to_data[name] = summoner_data
-    puuid_to_data[puuid] = summoner_data
-
-
-def add_by_puuid(puuid):
-    summoner_data = lol.get_summoner_info_by_puuid(puuid)
-    name = summoner_data["name"]
-    data.append(summoner_data)
-    summoner_to_data[name] = summoner_data
-    puuid_to_data[puuid] = summoner_data
-
-
-def link_discord(discord_name, summoner_name):
-    try:
-        for obj in data:
-            if discord_name in obj.values():
-                return False
-        for obj in data:
-            if obj["name"] == summoner_name:
-                summoner_to_data[summoner_name]["discord_name"] = discord_name
-                puuid_to_data[obj["puuid"]]["discord_name"] = discord_name
-                discord_to_data[discord_name] = obj
-                obj["discord_name"] = discord_name
-                return True
-        return False
-    except KeyError:
-        return False
-
-
-def unlink_discord(discord_name):
-    print(data)
-    for obj in data:
-        if "discord_name" not in obj:
-            continue
-        if obj["discord_name"] == int(discord_name):
-            summoner_to_data[obj["name"]]["discord_name"] = 0
-            puuid_to_data[obj["puuid"]]["discord_name"] = 0
-            obj["discord_name"] = 0
-            discord_to_data.pop(discord_name)
-            return True
-    return False
+def add(json_data: dict):
+	db.execute('INSERT INTO summoner(puuid, name, profile_icon_id, level) VALUES(:puuid, :name, :profile_icon_id, :level);', {
+		"puuid"				: json_data["puuid"],
+		"name"				: json_data["name"],
+		"profile_icon_id"	: json_data["profileIconId"],
+		"level" 			: json_data["summonerLevel"]
+	})
 
 

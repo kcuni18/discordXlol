@@ -1,7 +1,12 @@
-__pycache__
-api_key.txt
-summoners.json
-matches.bin
 .venv/
 .vscode/
-*test*
+__pycache__/
+
+api_key.txt
+bot_token.txt
+guild_id.txt
+
+database
+
+*.json
+*.bin

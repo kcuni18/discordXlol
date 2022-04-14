@@ -1,225 +1,131 @@
+import discord
+
 import league_api as lol
+import database as db
 import summoners
-from table_file import *
-from util import *
-
-# global variables
-matches_file = None
-
+import matches
+import util
 
 def init():
-    # matches file
-    attrib = FileAttributes()
-    attrib.insert("match_puuid", ATTRIBUTE_TYPE_STRING, 15)
-    attrib.insert("team_1", ATTRIBUTE_TYPE_STRING, 78 * 5)
-    attrib.insert("team_2", ATTRIBUTE_TYPE_STRING, 78 * 5)
-    attrib.insert("win", ATTRIBUTE_TYPE_INT, 1)
-
-    global matches_file
-    matches_file = TableFile('matches.bin', attrib)
-
-    # summoners
-    summoners.init()
-
+	db.init()
 
 def terminate():
-    summoners.write()
+	db.terminate()
 
+def link_account(summoner_name: str, discord_user: discord.User):
+	data = summoners.get_by_name(summoner_name)
+	if data['discord_id'] != None:
+		raise Exception(f'Summoner with name {summoner_name} is already linked to {discord_user.mention}.')
+	
+	data = db.select('SELECT * FROM summoner WHERE discord_id=:discord_id AND name!=:name', {'discord_id':discord_user.id, 'name':summoner_name})
+	if len(data) == 1:
+		raise Exception(f'You are already linked with account {data["name"]}')
 
-def winrate_by_discord(discord_id):
-    wins = 0
-    losses = 0
-    puuid = summoners.get_puuid_by_discord_name(discord_id)
-    if puuid is None:
-        return "Discord account is not linked!"
-    for i in range(matches_file.count):
-        # print("Getting ", i , " game")
-        row = matches_file.row_get(i)
-        teammates = split_team_puuids(row["team_1"])
-        if puuid in teammates:
-            # print("Found on team 1")
-            wins += row["win"]
-            losses += 0 if row["win"] == 1 else 1
-        teammates = split_team_puuids(row["team_2"])
-        if puuid in teammates:
-            # print("Found on team 2")
-            wins += 1 if row["win"] == 0 else 0
-            losses += row["win"]
-    # return wins, losses
-    winrate = wins / (wins + losses) * 100
-    return "{} has a winrate of {:.2f}% with {} wins and {} losses".format(summoners.get_name_by_puuid(puuid), winrate, wins, losses)
+	db.execute('UPDATE summoner SET discord_id=:discord_id WHERE name=:name', {
+		'discord_id': discord_user.id,
+		'name': summoner_name
+	})
 
+	db.commit()
 
-def winrate_by_name(name):
-    wins = 0
-    losses = 0
-    puuid = summoners.get_puuid_by_name(name)
-    if puuid is None:
-        return "{} does not exist".format(name)
-    for i in range(matches_file.count):
-        # print("Getting ", i , " game")
-        row = matches_file.row_get(i)
-        teammates = split_team_puuids(row["team_1"])
-        if puuid in teammates:
-            # print("Found on team 1")
-            wins += row["win"]
-            losses += 0 if row["win"] == 1 else 1
-        teammates = split_team_puuids(row["team_2"])
-        if puuid in teammates:
-            # print("Found on team 2")
-            wins += 1 if row["win"] == 0 else 0
-            losses += row["win"]
-    # return wins, losses
-    winrate = wins / (wins + losses) * 100
-    return "{} has a winrate of {:.2f}% with {} wins and {} losses".format(name, winrate, wins, losses)
+def find_link(discord_user: discord.User):
+	data = summoners.get_by_discord_user(discord_user)
+	return data["name"]
 
+def unlink_account(discord_user: discord.User):
+	# check if user is registered
+	summoners.get_by_discord_user(discord_user)
 
-def winrate_by_team(players):
-    players_puuid = []
-    for player in players:
-        temp = summoners.get_puuid_by_discord_name(player)
-        if temp is None:
-            return [player, " is not linked"]
-        players_puuid.append(temp)
-    team = generate_team_id(players_puuid)
-    wins = 0
-    losses = 0
-    for i in range(matches_file.count):
-        row = matches_file.row_get(i)
-        if row["team_1"] == team:
-            wins += row["win"]
-            losses += 0 if row["win"] == 1 else 1
-        elif row["team_2"] == team:
-            wins += 1 if row["win"] == 0 else 0
-            losses += row["win"]
-    if wins == 0 and losses == 0:
-        return "Team has not played any games together"
-    return "Team {}\nWinrate: {:.2f}% \nWins: {} \nLosses: {}".format(get_team_names(team), wins/(wins+losses)*100, wins, losses)
+	db.execute('UPDATE summoner SET discord_id=:discord_id_new WHERE discord_id=:discord_id_old',{
+		'discord_id_new': None,
+		'discord_id_old': discord_user.id
+	})
+	db.commit()
 
+def record_games(discord_user: discord.User, count: int = 1):
+	
+	summoner_data = summoners.get_by_discord_user(discord_user)
+	match_ids = lol.get_match_ids(summoner_data["puuid"])
 
-def winrate_for_best_teams(team_count=1, min_games=1):
-    result = ""
-    teams = {}
-    for i in range(matches_file.count):
-        row = matches_file.row_get(i)
-        try:
-            teams[row["team_1"]][0] += row["win"]
-            teams[row["team_1"]][1] += 0 if row["win"] == 1 else 1
-        except:
-            teams[row["team_1"]] = [row["win"], 0 if row["win"] == 1 else 1]
-        try:
-            teams[row["team_2"]][0] += 1 if row["win"] == 0 else 0
-            teams[row["team_2"]][1] += row["win"]
-        except:
-            teams[row["team_2"]] = [1 if row["win"] == 0 else 0, row["win"]]
-    sorted_teams = []
-    for team in teams:
-        if teams[team][0] + teams[team][1] >= min_games:
-            sorted_teams.append({
-                'team': get_team_names(team),
-                'winrate': teams[team][0] / (teams[team][0] + teams[team][1]) * 100,
-                'wins': teams[team][0],
-                'losses': teams[team][1]
-            })
-    sorted_teams.sort(key=lambda x: x['winrate'], reverse=True)
-    for i in range(min(team_count, len(sorted_teams))):
-        result += "Team {}\nWinrate: {:.2f}% \nWins: {} \nLosses: {}\n `--------------------------------------------------------------------------------------------`\n" \
-            .format(sorted_teams[i]['team'],
-                    sorted_teams[i]['winrate'],
-                    sorted_teams[i]['wins'],
-                    sorted_teams[i]['losses'])
-    if result == "":
-        return "No teams meet the criteria"
-    return result
+	recorded_count = 0
+	failed_count = 0
+	success_count = 0
 
+	for match_id in match_ids:
+		match_info = lol.get_match_info(match_id)
+		match_id = util.match_id_to_int(match_id)
 
-def record_games(name, count=1):
-    total = count
-    not_counted = 0
-    puuid = summoners.get_puuid_by_discord_name(name)
-    match_ids = lol.get_match_ids(puuid, 100)
-    for match_id in match_ids:
-        match_info = lol.get_match_info(match_id)
-        if match_info["info"]["gameType"] != "CUSTOM_GAME":
-            print("Match type is {}. Skipping.".format(match_info["info"]["gameType"]))
-        elif len(match_info["metadata"]["participants"]) != 10:
-            print("Nr of participants is {}. Skipping.".format(len(match_info["metadata"]["participants"])))
-        else:
-            match_found = False
-            for i in range(matches_file.count):
-                row = matches_file.attrib_get(i, "match_puuid")
-                if row == match_info["metadata"]["matchId"]:
-                    print("Match already recorded. Skipping.")
-                    match_found = True
-            if not match_found:
-                not_counted += 1
-                print("Adding match with id {}.".format(match_info['metadata']['matchId']))
-                for participant in match_info['metadata']['participants']:
-                    if summoners.get_name_by_puuid(participant) is None:
-                        summoners.add_by_puuid(participant)
-                        print("Found new summoner '{}'.".format(summoners.get_name_by_puuid(participant)))
-                matches_file.row_append({
-                    'match_puuid': match_info['metadata']['matchId'],
-                    'team_1': ''.join(sorted(match_info['metadata']['participants'][0:5])),
-                    'team_2': ''.join(sorted(match_info['metadata']['participants'][5:10])),
-                    'win': 1 if match_info['info']['participants'][0]['win'] else 0
-                })
-            count = count - 1
-            if count == 0:
-                break
-    return "Out of {} games, {} were new and recorded".format(total, not_counted)
+		if match_info["info"]["gameType"] != "CUSTOM_GAME":
+			print(f"Match type is {match_info['info']['gameType']}. Skipping.")
+		elif len(match_info["metadata"]["participants"]) != 10:
+			print(f"Nr of participants is {len(match_info['metadata']['participants'])}. Skipping.")
+		elif matches.is_recorded(match_id):
+			print("Match is already recorded. Skipping.")
+			recorded_count = recorded_count + 1
+		else:
+			# check all participants are registered
+			for p in match_info["metadata"]["participants"]:
+				data = db.select('SELECT name FROM summoner WHERE puuid=:puuid', {'puuid':p})
+				if len(data) != 1:
+					p_summoner_data = lol.get_summoner_info_by_puuid(p)
+					db.execute('INSERT INTO summoner(puuid, name, profile_icon_id, level) VALUES(:puuid, :name, :profile_icon_id, :level);', {
+						"puuid"				: p_summoner_data["puuid"],
+						"name"				: p_summoner_data["name"],
+						"profile_icon_id"	: p_summoner_data["profileIconId"],
+						"level" 			: p_summoner_data["summonerLevel"]
+					})
+			db.commit()
+			# insert match
+			success, message = matches.record(match_info)
+			if not success:
+				print(f"Failed to insert match {match_id}. {message}")
+				failed_count = failed_count + 1
+			else:
+				print(f"Inserted match successfully.")
+				success_count = success_count + 1
+		if count <= success_count + failed_count + recorded_count:
+			break
 
+	return success_count
 
-def unlink_account(discord_id):
-    if summoners.unlink_discord(discord_id):
-        summoners.write()
-        return "Account unlinked successfully."
-    else:
-        return "Account is not linked."
+def winrate(discord_user: discord.User):
+	summoner_data = summoners.get_by_discord_user(discord_user)
+	puuid = summoner_data['puuid']
 
+	wins = db.select('''
+		SELECT COUNT(match.blue_win) as count
+		FROM summoner
+		JOIN participant ON summoner.id = participant.summoner_id
+		JOIN match ON participant.match_id = match.id
+		WHERE summoner.puuid=:puuid and match.blue_win == participant.team;
+	''', {'puuid':puuid})[0]['count']
+	
+	losses = db.select('''
+		SELECT COUNT(match.blue_win) as count
+		FROM summoner
+		JOIN participant ON summoner.id = participant.summoner_id
+		JOIN match ON participant.match_id = match.id
+		WHERE summoner.puuid=:puuid and match.blue_win != participant.team;
+	''', {'puuid':puuid})[0]['count']
 
-def link_account(discord_id, summoner):
-    if summoners.link_discord(discord_id, summoner):
-        summoners.write()
-        return "Account linked successfully"
-    else:
-        return "Already linked or account name does not match"
+	winrate = wins / (wins + losses) * 100
 
-
-def find_account(discord_id):
-    if summoners.get_name_by_puuid(summoners.get_puuid_by_discord_name(discord_id)) is None:
-        return "Account is not linked"
-    else:
-        return summoners.get_name_by_puuid(summoners.get_puuid_by_discord_name(discord_id)) + " is the linked account."
+	return winrate, wins, losses
 
 ###### TESTING ######
 
-# load files
-init()
+if __name__ == '__main__':
+	init()
 
-"""
-for player in summoners.data:
-    if "discord_name" not in player:
-        player["discord_name"] = 0
-        print("Dsicord key missing on :", player["name"])
-"""
+	name = 'CapKunkka'
+	summoner_data = lol.get_summoner_info_by_name(name)
+	db.execute('INSERT INTO summoner(puuid, name, profile_icon_id, level) VALUES(:puuid, :name, :profile_icon_id, :level);', {
+		"puuid"				: summoner_data["puuid"],
+		"name"				: summoner_data["name"],
+		"profile_icon_id"	: summoner_data["profileIconId"],
+		"level" 			: summoner_data["summonerLevel"]
+	})
 
-# code to add all summoners present in the matches file
-# for i in range(matches_file.count):
-#	row = matches_file.row_get(i)
-#	team_1 = split_team_puuids(row["team_1"])
-#	team_2 = split_team_puuids(row["team_2"])
-#	for puuid in team_1 + team_2:
-#		if summoners.get_name_by_puuid(puuid) == None:
-#			summoners.add_by_puuid(puuid)
-#			print("Found new summoner '{}'.".format(summoners.get_name_by_puuid(puuid)))
+	terminate()
 
 
-# winrate_for_best_teams(team_count=2,min_games=2)
-
-
-# print(winrate_by_name("its jungle gap"))
-
-
-# write and close files
-terminate()

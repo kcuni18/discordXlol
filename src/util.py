@@ -1,4 +1,4 @@
-import old_database as db
+import database as db
 
 # split team puuid into array of summoner puuid
 def split_team_puuids(team):

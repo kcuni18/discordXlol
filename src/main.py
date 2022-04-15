@@ -1,4 +1,3 @@
-from discord.ext import commands
 import discord
 import summoners
 
@@ -32,9 +31,11 @@ async def link(ctx: discord.ApplicationContext, name: discord.Option(str, "Your 
 		await ctx.respond(f"Failed: {str(e)}")
 
 @bot.slash_command(guild_ids=[guild_id], description="Check whether your discord account is linked with a summoner.")
-async def find_link(ctx: discord.ApplicationContext):
+async def find_link(ctx: discord.ApplicationContext, user: discord.Option(discord.User, "The user you want to find the summoner name for.", default=None)):
+	if user is None:
+		user = ctx.author
 	try:
-		name = core.find_link(ctx.author)
+		name = core.find_link(user)
 		await ctx.respond(f'Linked account is `{name}`.')
 	except Exception as e:
 		await ctx.respond(f"Failed: {str(e)}")
@@ -73,10 +74,12 @@ async def winrate(ctx: discord.ApplicationContext, player: discord.Option(discor
 
 ###### SHUTDOWN COMMAND ######
 @bot.slash_command(guild_ids=[guild_id], description="Shuts down the bot.")
-@commands.is_owner()
 async def shutdown(ctx: discord.ApplicationContext):
-	await ctx.respond('Logging out!')
-	await bot.close()
+	if bot.is_owner(ctx.author):
+		await ctx.respond('Logging out!')
+		await bot.close()
+	else:
+		await ctx.respond('Only owner can shutdown the bot.')
 
 
 ###### TERMINATE ######

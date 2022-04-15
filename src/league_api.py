@@ -1,10 +1,10 @@
 import requests
 import json
 import time
+import os
 
 # global_variables
-with open('api_key.txt', 'r') as file:
-	api_key = file.read()
+api_key=os.environ['api_key']
 
 # request wrapper to retry after 10 seconds if failure
 def _request_get(link):

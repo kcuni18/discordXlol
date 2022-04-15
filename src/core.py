@@ -48,7 +48,6 @@ def record_games(discord_user: discord.User, count: int = 1):
 	match_ids = lol.get_match_ids(summoner_data["puuid"])
 
 	recorded_count = 0
-	failed_count = 0
 	success_count = 0
 
 	for match_id in match_ids:
@@ -76,14 +75,10 @@ def record_games(discord_user: discord.User, count: int = 1):
 					})
 			db.commit()
 			# insert match
-			success, message = matches.record(match_info)
-			if not success:
-				print(f"Failed to insert match {match_id}. {message}")
-				failed_count = failed_count + 1
-			else:
-				print(f"Inserted match successfully.")
-				success_count = success_count + 1
-		if count <= success_count + failed_count + recorded_count:
+			matches.record(match_info)
+			print(f"Inserted match successfully.")
+			success_count = success_count + 1
+		if count <= success_count + recorded_count:
 			break
 
 	return success_count
@@ -114,12 +109,14 @@ def winrate(discord_user: discord.User):
 
 ###### TESTING ######
 
+import os
+
 if __name__ == '__main__':
 	init()
-
-	name = 'CapKunkka'
+	
+	name = os.environ['starting_summoner']
 	summoner_data = lol.get_summoner_info_by_name(name)
-	db.execute('INSERT INTO summoner(puuid, name, profile_icon_id, level) VALUES(:puuid, :name, :profile_icon_id, :level);', {
+	db.execute('INSERT INTO summoner(puuid, name, profile_icon_id, level)					VALUES(:puuid, :name, :profile_icon_id, :level);', {
 		"puuid"				: summoner_data["puuid"],
 		"name"				: summoner_data["name"],
 		"profile_icon_id"	: summoner_data["profileIconId"],

@@ -1,15 +1,13 @@
 import discord
 import summoners
+import os
 
 import core
 
 
 ###### CONFIG ######
-with open('bot_token.txt') as file:
-	bot_token = file.read()
-with open('guild_id.txt') as file:
-	guild_id = int(file.read())
-
+bot_token=os.environ['bot_token']
+guild_id=os.environ['guild_id']
 
 ###### INIT ######
 core.init()
@@ -55,11 +53,12 @@ async def record_match(ctx: discord.ApplicationContext,
 		game_count: discord.Option(int, "The count of custom games to be checked.", default=1)):
 	if user is None:
 		user = ctx.author
+	await ctx.defer()
 	try:
 		recorded_games = core.record_games(user, game_count)
-		await ctx.respond(f"{game_count} {'game was' if game_count == 1 else 'games were'} checked. Of those {recorded_games} {'was' if recorded_games == 1 else 'were'} new and got recorded.")
+		await ctx.followup.send(f"{game_count} {'game was' if game_count == 1 else 'games were'} checked. Of those {recorded_games} {'was' if recorded_games == 1 else 'were'} new and got recorded.")
 	except Exception as e:
-		await ctx.respond(f"Failed: {str(e)}")
+		await ctx.followup.send(f"Failed: {str(e)}")
 
 @bot.slash_command(guild_ids=[guild_id], description="Find winrate of player.")
 async def winrate(ctx: discord.ApplicationContext, player: discord.Option(discord.User, "Tag of the player you want to find the winrate for.", default=None)):

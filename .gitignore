@@ -7,6 +7,11 @@ bot_token.txt
 guild_id.txt
 
 database
+database-journal
 
 *.json
 *.bin
+
+# repl stuff
+keep_alive.py
+main.sh

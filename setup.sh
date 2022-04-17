@@ -5,3 +5,5 @@ if [ ! -d ".venv" ]; then
 fi
 ./init.sh
 python -m pip install -r dependencies_py.txt
+
+python src/core.py

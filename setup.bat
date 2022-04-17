@@ -6,4 +6,4 @@ if NOT EXIST .venv (
 CALL init.bat
 python -m pip install -r dependencies_py.txt
 
-python
+python src\core.py

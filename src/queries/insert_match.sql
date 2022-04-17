@@ -1,6 +1,7 @@
 INSERT INTO match(
 	id,
 	duration,
+	start,
 	name,
 	team_blue,
 	team_red,
@@ -9,6 +10,7 @@ INSERT INTO match(
 VALUES(
 	:id,
 	:duration,
+	:start,
 	:name,
 	:team_blue,
 	:team_red,

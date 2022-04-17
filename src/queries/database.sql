@@ -17,10 +17,11 @@ CREATE TABLE IF NOT EXISTS summoner(
 CREATE TABLE IF NOT EXISTS match(
 	id 					INTEGER 	PRIMARY KEY,
 	duration 			INTEGER 	NOT NULL,
+	start				INTEGER 	NOT NULL,
 	name 				TEXT 		NOT NULL,
 
-	team_blue			TEXT		NOT NULL,
-	team_red			TEXT		NOT NULL,
+	team_blue			BLOB		NOT NULL,
+	team_red			BLOB		NOT NULL,
 	blue_win			INTEGER		NOT NULL
 );
 CREATE TABLE IF NOT EXISTS participant(
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS participant(
 	summoner_id			INTEGER 	NOT NULL 		REFERENCES summoner(id),
 	match_id 			INTEGER 	NOT NULL 		REFERENCES match(id),
 	team				INTEGER		NOT NULL,
+	position			TEXT		NOT NULL,
 
 	kills				INTEGER		NOT NULL,
 	assists 			INTEGER		NOT NULL,

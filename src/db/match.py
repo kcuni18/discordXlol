@@ -1,43 +1,49 @@
-from array import array
-import database as db
-import summoners
-import util
+import db.database as db
+import db.summoner as summoner
 
 with open('src/queries/insert_match.sql') as file:
 	insert_match_query = file.read()
 with open('src/queries/insert_participant.sql') as file:
 	insert_participant_query = file.read()
 
-def get_by_id(id: int):
-	data = db.select(f'SELECT * FROM match WHERE id=:id', {'id':id})
+async def get(id: int):
+	data = await db.select(f'SELECT * FROM match WHERE id=:id', {'id':id})
 	if len(data) != 1:
 		raise KeyError(f'Match {id} is not recorded.')
 	return data
 
-def is_recorded(id: int):
+async def is_recorded(id: int):
 	try:
-		get_by_id(id)
+		await get(id)
 		return True
 	except KeyError:
 		return False
 
-def record(json_data: dict):
-	db.execute(insert_match_query, {
+async def record(json_data: dict):
+
+	summoner_ids = [ (await summoner.get_by_puuid(puuid))['id'] for puuid in json_data["metadata"]["participants"]]
+
+	team_blue_bytes = team_ids_to_bytes(summoner_ids[0:5])
+	team_red_bytes = team_ids_to_bytes(summoner_ids[5:10])
+
+	await db.execute(insert_match_query, {
 		'id' 		: json_data["info"]["gameId"],
+		'start'		: json_data["info"]["gameCreation"],
 		'duration' 	: json_data["info"]["gameDuration"],
 		'name' 		: json_data["info"]["gameName"],
-		'team_blue'	: util.generate_team_id(json_data["metadata"]["participants"][0:5]),
-		'team_red' 	: util.generate_team_id(json_data["metadata"]["participants"][5:10]),
+		'team_blue'	: team_blue_bytes,
+		'team_red' 	: team_red_bytes,
 		'blue_win' 	: 1 if json_data["info"]["participants"][0]["win"] else 0
 	})
 
 	for i in range(0, 10):
-		id = summoners.get_by_puuid(json_data["metadata"]["participants"][i])['id']
+		summoner_id = (await summoner.get_by_puuid(json_data["metadata"]["participants"][i]))['id']
 		participant_data = json_data["info"]["participants"][i]
-		db.execute(insert_participant_query, {
-			'summoner_id' 			: id,
+		await db.execute(insert_participant_query, {
+			'summoner_id' 			: summoner_id,
 			'match_id' 				: json_data["info"]["gameId"],
 			'team' 					: 0 if i < 5 else 1,
+			'position'				: participant_data["teamPosition"],
 			'kills' 				: participant_data["kills"],
 			'assists' 				: participant_data["assists"],
 			'deaths' 				: participant_data["deaths"],
@@ -89,3 +95,12 @@ def record(json_data: dict):
 			'champ_level' 			: participant_data["champLevel"],
 			'champ_id' 				: participant_data["championId"]
 		})
+
+import struct
+
+def team_ids_to_bytes(summoner_ids: list):
+	summoner_ids.sort()
+	return struct.pack('QQQQQ', *summoner_ids)
+
+def team_bytes_to_ids(data: bytes):
+	return list(struct.unpack('QQQQQ', data))

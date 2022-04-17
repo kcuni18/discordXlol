@@ -1,7 +1,5 @@
 #!/bin/bash
 
-source .venv/bin/activate
-
 if [ -f "bot_token.txt" ]; then
 	bot_token=`cat bot_token.txt`
 fi

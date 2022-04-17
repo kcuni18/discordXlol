@@ -1,6 +1,7 @@
 .venv/
 .vscode/
 __pycache__/
+cache/
 
 api_key.txt
 bot_token.txt
@@ -11,6 +12,7 @@ database-journal
 
 *.json
 *.bin
+*.lock
 
 # repl stuff
 keep_alive.py

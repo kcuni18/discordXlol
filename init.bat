@@ -1,7 +1,5 @@
 @echo off
 
-CALL .venv\Scripts\activate.bat
-
 if EXIST "bot_token.txt" (
 	set /p bot_token=<bot_token.txt
 )

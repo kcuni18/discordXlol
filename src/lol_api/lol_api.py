@@ -13,10 +13,12 @@ def request(link: str, params: dict):
 	link = link.format(**params)
 	response = requests.get(link)
 	while response.status_code == 429:
-		print(f"{json.dumps(json.loads(response.text)['status']['message'])} Retrying in {retry_time} seconds.")
 		retry_time = int(response.headers.get('Retry-After'))
+		print(f"{json.dumps(json.loads(response.text)['status']['message'])} Retrying in {retry_time} seconds.")
 		time.sleep(retry_time + 1)
 		response = requests.get(link)
+	if response.status_code == 404:
+		raise KeyError(f"{link} not found")
 	if response.status_code != 200:
 		raise HTTPException(f"Request failed. Status code {response.status_code}.\n{json.loads(response.text)['status']['message']}")
 	return json.loads(response.text)

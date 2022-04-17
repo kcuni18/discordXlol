@@ -8,11 +8,12 @@ import summoner
 import match
 
 import asyncio
+import os
 
 async def run():
 	await main.init()
 
-	name = 'CapKunkka'
+	name = os.environ['setup_summoner']
 	summoner_data = lol.summoner_get_by_name(name)
 	await db.summoner_register(summoner_data)
 

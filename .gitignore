@@ -1,14 +1,17 @@
+# folders
 .venv/
 .vscode/
 __pycache__/
 cache/
 
+# config
 api_key.txt
 bot_token.txt
 guild_id.txt
+setup_summoner.txt
 
+# data
 database
 database-journal
-
 *.json
 *.bin

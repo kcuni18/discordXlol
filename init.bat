@@ -11,6 +11,6 @@ if EXIST "api_key.txt" (
 if EXIST "guild_id.txt" (
 	set /p guild_id=<guild_id.txt
 )
-if EXIST "starting_summoner.txt" (
-	set /p starting_summoner=<starting_summoner.txt
+if EXIST "setup_summoner.txt" (
+	set /p setup_summoner=<setup_summoner.txt
 )

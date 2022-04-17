@@ -11,6 +11,6 @@ fi
 if [ -f "guild_id.txt" ]; then
 	guild_id=`cat guild_id.txt`
 fi
-if [ -f "starting_summoner.txt" ]; then
-	starting_summoner=`cat starting_summoner.txt`
+if [ -f "setup_summoner.txt" ]; then
+	setup_summoner=`cat setup_summoner.txt`
 fi

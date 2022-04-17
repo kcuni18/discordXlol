@@ -12,8 +12,3 @@ database-journal
 
 *.json
 *.bin
-*.lock
-
-# repl stuff
-keep_alive.py
-main.sh

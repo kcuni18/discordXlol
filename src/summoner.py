@@ -10,7 +10,7 @@ def request_info(puuid: str) -> dict:
 
 async def register(summoner_data: dict):
 	puuid = summoner_data['puuid']
-	if cache.summoner_exists(puuid):
+	if not cache.summoner_exists(puuid):
 		cache.summoner_register(summoner_data)
 	if not (await db.summoner_is_registered(summoner_data['name'])):
 		await db.summoner_register(summoner_data)

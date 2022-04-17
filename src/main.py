@@ -9,6 +9,7 @@ import match
 import summoner
 
 ###### CONFIG ######
+bot_owner_id=int(os.environ['bot_owner_id'])
 bot_token=os.environ['bot_token']
 guild_id=os.environ['guild_id']
 
@@ -40,20 +41,23 @@ async def link(ctx: discord.ApplicationContext, summoner_name: discord.Option(st
 			return
 	except KeyError:
 		pass
+	try:
+		summoner_data = await db.summoner_get_by_name(summoner_name)
+		if summoner_data['discord_id'] != None:
+			await ctx.respond(f'Summoner with name {summoner_name} is already linked to {user.mention}.')
+			return
 	
-	summoner_data = await db.summoner_get_by_name(summoner_name)
-	if summoner_data['discord_id'] != None:
-		await ctx.respond(f'Summoner with name {summoner_name} is already linked to {user.mention}.')
-		return
-	
-	await db.execute('UPDATE summoner SET discord_id=:discord_id WHERE name=:name', {
-		'discord_id': user.id,
-		'name': summoner_name
-	})
-	
-	await db.commit()
+		await db.execute('UPDATE summoner SET discord_id=:discord_id WHERE name=:name', {
+			'discord_id': user.id,
+			'name': summoner_name
+		})
 
-	await ctx.respond(f"Linked successfully with `{summoner_name}`.")
+		await db.commit()
+
+		await ctx.respond(f"Linked successfully with `{summoner_name}`.")
+		
+	except Exception as e:
+		await ctx.respond(f"Failed: {str(e)}")
 
 
 @bot.slash_command(guild_ids=[guild_id], description="Check whether your discord account is linked with a summoner.")
@@ -157,7 +161,7 @@ async def winrate(ctx: discord.ApplicationContext, player: discord.Option(discor
 ###### SHUTDOWN COMMAND ######
 @bot.slash_command(guild_ids=[guild_id], description="Shuts down the bot.")
 async def shutdown(ctx: discord.ApplicationContext):
-	if await bot.is_owner(ctx.author):
+	if await bot.is_owner(ctx.author) or ctx.author.id == bot_owner_id:
 		await ctx.respond('Logging out!')
 		await terminate()
 		await ctx.bot.close()

@@ -14,3 +14,6 @@ fi
 if [ -f "setup_summoner.txt" ]; then
 	setup_summoner=`cat setup_summoner.txt`
 fi
+if [ -f "bot_owner_id.txt" ]; then
+	bot_owner_id=`cat bot_owner_id.txt`
+fi

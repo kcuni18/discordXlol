@@ -14,3 +14,6 @@ if EXIST "guild_id.txt" (
 if EXIST "setup_summoner.txt" (
 	set /p setup_summoner=<setup_summoner.txt
 )
+if EXIST "bot_owner_id.txt" (
+	set /p bot_owner_id=<bot_owner_id.txt
+)

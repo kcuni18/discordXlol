@@ -187,18 +187,12 @@ async def winrate(ctx: discord.ApplicationContext,
 		friendly_team = (await db.select('SELECT * FROM team WHERE _id=:team_id', {'team_id':friendly_participant_team['team_id']}))[0]
 		ennemy_team = (await db.select('SELECT * FROM team WHERE _id=:team_id', {'team_id':ennemy_participant_team['team_id']}))[0]
 
-		print(f"friendly_team:{friendly_team['_id']}, ennemy_team:{ennemy_team['_id']}")
-
 		if with_summoner_data is not None:
 			if with_summoner_data['_id'] not in db.team.dict_to_ids(friendly_team):
 				continue
-			else:
-				print("In friendly team")
 		if vs_summoner_data is not None:
 			if vs_summoner_data['_id'] not in db.team.dict_to_ids(ennemy_team):
 				continue
-			else:
-				print("In ennemy team")
 	
 		wins = wins + participant['win']
 		games = games + 1

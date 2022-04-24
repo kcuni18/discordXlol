@@ -207,7 +207,6 @@ async def winrate(ctx: discord.ApplicationContext,
 	if games != 0:
 		response += f".\nOf those they have won `{wins}` and lost `{games - wins}` making a winrate of `{(wins / games * 100):.2f}%`."
 	return await ctx.respond(response)
-	#await ctx.respond(f"Summoner `{summoner_data['name']}` has a winrate of {winrate:.2f}% with {wins} wins and {games - wins} losses. with: {'None' if with_summoner_data is None else with_summoner_data['name']} vs: {'None' if vs_summoner_data is None else vs_summoner_data['name']}")
 
 ###### ADMIN COMMAND ######
 @bot.slash_command(guild_ids=[guild_id], description="Link discord user to summoner.(Admin only)")
@@ -235,7 +234,7 @@ async def admin_link(ctx: discord.ApplicationContext,
 	await db.summoner.set_discord_user(summoner_name, user)
 	await db.commit()
 
-	return await ctx.respond(f"Linked successfully with `{summoner_name}`.")
+	return await ctx.respond(f"Linked successfully user {user.mention} with `{summoner_name}`.")
 
 @bot.slash_command(guild_ids=[guild_id], description="Unlink user from summoner.(Admin only)")
 async def admin_unlink(ctx: discord.ApplicationContext, user: discord.Option(discord.User, "User to unlink.")):

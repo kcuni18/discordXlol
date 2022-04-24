@@ -14,3 +14,6 @@ setup_summoner.txt
 database*
 *.json
 *.bin
+
+# testing
+*test*

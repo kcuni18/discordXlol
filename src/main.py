@@ -1,7 +1,4 @@
 from http.client import HTTPException
-from pydoc import describe
-from urllib.error import HTTPError
-from aiohttp import HttpVersion
 import discord
 import os
 
@@ -146,7 +143,11 @@ async def record_match(ctx: discord.ApplicationContext,
 	return await ctx.followup.send(f"{match_count} {'game was' if match_count == 1 else 'games were'} checked. Of those {recorded_games} {'was' if recorded_games == 1 else 'were'} new and got recorded.")
 
 @bot.slash_command(guild_ids=[guild_id], description="Find winrate of user.")
-async def winrate(ctx: discord.ApplicationContext, user: discord.Option(discord.User, "Tag of the user you want to find the winrate for.", default=None)):
+async def winrate(ctx: discord.ApplicationContext,
+	user: discord.Option(discord.User, "Tag of the user you want to find the winrate for.", default=None),
+	_with: discord.Option(discord.User, "with", default=None),
+	_vs: discord.Option(discord.User, "vs", default=None)):
+
 	if user is None:
 		user = ctx.author
 	
@@ -154,34 +155,116 @@ async def winrate(ctx: discord.ApplicationContext, user: discord.Option(discord.
 	if summoner_data is None:
 		return await ctx.respond(f'User {user.mention} is not linked to any summoner.')
 
-	wins = (await db.select('''
-		SELECT COUNT(win) as count
-		FROM participant
+	if _with is not None:
+		with_summoner_data = await db.summoner.get_by_discord_user(_with)
+		if with_summoner_data is None:
+			return await ctx.respond(f'User {_with.mention} is not linked to any summoner.')
+	else:
+		with_summoner_data = None
+
+	if _vs is not None:
+		vs_summoner_data = await db.summoner.get_by_discord_user(_vs)
+		if vs_summoner_data is None:
+			return await ctx.respond(f'User {_vs.mention} is not linked to any summoner.')
+	else:
+		vs_summoner_data = None
+
+	wins = 0
+	games = 0
+
+	participants = (await db.select('''
+		SELECT * FROM participant
 		JOIN summoner ON participant.summoner_id = summoner._id
-		WHERE summoner._id=:id and participant.win == 1;
-	''', {'id':summoner_data['_id']}))[0]['count']
+		WHERE summoner._id=:id
+	''', {'id':summoner_data['_id']}))
+	for participant in participants:
+		match_id = participant['match_id']
+		participant_teams = (await db.select('SELECT _id, team_id FROM participant_team WHERE match_id=:match_id', {'match_id':match_id}))
+		
+		friendly_participant_team = participant_teams[0] if participant_teams[0]['_id'] == participant['participant_team'] else participant_teams[1]
+		ennemy_participant_team = participant_teams[0] if participant_teams[0]['_id'] != participant['participant_team'] else participant_teams[1]
 
-	losses = (await db.select('''
-		SELECT COUNT(win) as count
-		FROM participant
-		JOIN summoner ON participant.summoner_id = summoner._id
-		WHERE summoner._id=:id and participant.win == 0;
-	''', {'id':summoner_data['_id']}))[0]['count']
+		friendly_team = (await db.select('SELECT * FROM team WHERE _id=:team_id', {'team_id':friendly_participant_team['team_id']}))[0]
+		ennemy_team = (await db.select('SELECT * FROM team WHERE _id=:team_id', {'team_id':ennemy_participant_team['team_id']}))[0]
 
-	if wins + losses == 0:
-		return await ctx.respond(f"Summoner `{summoner_data['name']}` doesn't have any recorded games.")
+		print(f"friendly_team:{friendly_team['_id']}, ennemy_team:{ennemy_team['_id']}")
 
-	winrate = wins / (wins + losses) * 100
-	await ctx.respond(f"Summoner `{summoner_data['name']}` has a winrate of {winrate:.2f}% with {wins} wins and {losses} losses.")
+		if with_summoner_data is not None:
+			if with_summoner_data['_id'] not in db.team.dict_to_ids(friendly_team):
+				continue
+			else:
+				print("In friendly team")
+		if vs_summoner_data is not None:
+			if vs_summoner_data['_id'] not in db.team.dict_to_ids(ennemy_team):
+				continue
+			else:
+				print("In ennemy team")
+	
+		wins = wins + participant['win']
+		games = games + 1
 
-###### SHUTDOWN COMMAND ######
-@bot.slash_command(guild_ids=[guild_id], description="Shuts down the bot. Only the owner of the bot can do so.")
-async def shutdown(ctx: discord.ApplicationContext):
+	response = f"Summoner `{summoner_data['name']}` has played `{games}` {'match' if games == 1 else 'matches'}"
+	if with_summoner_data is not None:
+		response += f" with `{with_summoner_data['name']}`"
+		if vs_summoner_data is not None:
+			response += f" and against `{vs_summoner_data['name']}`"
+	elif vs_summoner_data is not None:
+		response += f" against `{vs_summoner_data['name']}`"
+	if games != 0:
+		response += f".\nOf those they have won `{wins}` and lost `{games - wins}` making a winrate of `{(wins / games * 100):.2f}%`."
+	return await ctx.respond(response)
+	#await ctx.respond(f"Summoner `{summoner_data['name']}` has a winrate of {winrate:.2f}% with {wins} wins and {games - wins} losses. with: {'None' if with_summoner_data is None else with_summoner_data['name']} vs: {'None' if vs_summoner_data is None else vs_summoner_data['name']}")
+
+###### ADMIN COMMAND ######
+@bot.slash_command(guild_ids=[guild_id], description="Link discord user to summoner.(Admin only)")
+async def admin_link(ctx: discord.ApplicationContext,
+		user: discord.Option(discord.User, "User to link."),
+		summoner_name: discord.Option(str, "A league of legends username.", autocomplete=list_names)):
+	if not (await bot.is_owner(ctx.author)) and ctx.author.id != bot_owner_id:
+		return await ctx.respond(f"Only owner can use this command.")
+
+	summoner_data = await db.summoner.get_by_discord_user(user)
+	if summoner_data is not None:
+		if summoner_data['name'] == summoner_name:
+			return await ctx.respond(f'User {user.mention} is already linked with `{summoner_name}`.')
+		else:
+			return await ctx.respond(f'User {user.mention} is already linked with summoner `{summoner_data["name"]}`.')
+
+	summoner_data = await db.summoner.get_by_name(summoner_name)
+	if summoner_data is not None:
+		if summoner_data['discord_id'] != None:
+			other_user = await bot.fetch_user(summoner_data['discord_id'])
+			return await ctx.respond(f'Summoner `{summoner_name}` is already linked to {other_user.mention}.')
+	else:
+		return await ctx.respond(f'Summoner `{summoner_name}` is not registered(does not exist in the database). Use /register to register the summoner.')
+
+	await db.summoner.set_discord_user(summoner_name, user)
+	await db.commit()
+
+	return await ctx.respond(f"Linked successfully with `{summoner_name}`.")
+
+@bot.slash_command(guild_ids=[guild_id], description="Unlink user from summoner.(Admin only)")
+async def admin_unlink(ctx: discord.ApplicationContext, user: discord.Option(discord.User, "User to unlink.")):
+	if not (await bot.is_owner(ctx.author)) and ctx.author.id != bot_owner_id:
+		return await ctx.respond(f"Only owner can use this command.")
+
+	if not await db.summoner.is_registered_by_discord_user(user):
+		return await ctx.respond(f"User {user.mention} is not linked to any summoner. Cannot unlink.")
+
+	await db.execute('UPDATE summoner SET discord_id=:discord_id_new WHERE discord_id=:discord_id_old', {
+		'discord_id_new': None,
+		'discord_id_old': user.id
+	})
+	await db.commit()
+
+	return await ctx.respond(f"Successfully unlinked {user.mention}.")
+
+@bot.slash_command(guild_ids=[guild_id], description="Shuts down the bot.(Admin only)")
+async def admin_shutdown(ctx: discord.ApplicationContext):
 	if await bot.is_owner(ctx.author) or ctx.author.id == bot_owner_id:
 		await ctx.respond('Logging out!')
 		await terminate()
 		await bot.close()
-		bot.close()
 	else:
 		await ctx.respond('Only owner can shutdown the bot.')
 

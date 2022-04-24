@@ -1,4 +1,4 @@
-# v0.0.0 -> v1.0.0
+# v0.0.0 -> v1.0.*
 
 import asyncio
 import json
@@ -17,7 +17,7 @@ async def run():
 	for data in summoners_data:
 		summoner_data = summoner.request_info(data['puuid'])
 		await summoner.register(summoner_data)
-		await db.summoner.set_discord_id(summoner_data['name'], summoner_data['discord_id'])
+		await db.summoner.set_discord_id(summoner_data['name'], data['discord_id'])
 
 	# matches
 	with open('matches.json', 'r') as file:

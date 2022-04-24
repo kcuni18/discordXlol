@@ -1,106 +1,84 @@
-import db.database as db
-import db.summoner as summoner
+from .core import execute, select
+from . import summoner
+from . import team
 
 with open('src/queries/insert_match.sql') as file:
 	insert_match_query = file.read()
 with open('src/queries/insert_participant.sql') as file:
 	insert_participant_query = file.read()
+with open('src/queries/insert_participant_team.sql') as file:
+	insert_participant_team_query = file.read()
+
 
 async def get(id: int):
-	data = await db.select(f'SELECT * FROM match WHERE id=:id', {'id':id})
+	data = await select(f'SELECT * FROM match WHERE gameId=:id', {'id':id})
 	if len(data) != 1:
-		raise KeyError(f'Match {id} is not recorded.')
+		return None
 	return data
 
 async def is_recorded(id: int):
-	try:
-		await get(id)
-		return True
-	except KeyError:
+	data = await get(id)
+	if data == None:
 		return False
+	return True
 
 async def record(json_data: dict):
 
-	summoner_ids = [ (await summoner.get_by_puuid(puuid))['id'] for puuid in json_data["metadata"]["participants"]]
+	match_id = json_data['info']['gameId']
+	await execute(insert_match_query, json_data['info'])
 
-	team_blue_bytes = team_ids_to_bytes(summoner_ids[0:5])
-	team_red_bytes = team_ids_to_bytes(summoner_ids[5:10])
+	summoner_ids = [ (await summoner.get_by_puuid(data['puuid']))['_id'] for data in json_data["info"]["participants"]]
+	teams_ids = [ summoner_ids[:5], summoner_ids[5:] ]
 
-	await db.execute(insert_match_query, {
-		'id' 		: json_data["info"]["gameId"],
-		'start'		: json_data["info"]["gameCreation"],
-		'duration' 	: json_data["info"]["gameDuration"],
-		'name' 		: json_data["info"]["gameName"],
-		'team_blue'	: team_blue_bytes,
-		'team_red' 	: team_red_bytes,
-		'blue_win' 	: 1 if json_data["info"]["participants"][0]["win"] else 0
-	})
+	for team_index, team_ids in enumerate(teams_ids):
+		if not await team.is_registered_by_ids(team_ids):
+			await team.register(team_ids)
 
-	for i in range(0, 10):
-		summoner_id = (await summoner.get_by_puuid(json_data["metadata"]["participants"][i]))['id']
-		participant_data = json_data["info"]["participants"][i]
-		await db.execute(insert_participant_query, {
-			'summoner_id' 			: summoner_id,
-			'match_id' 				: json_data["info"]["gameId"],
-			'team' 					: 0 if i < 5 else 1,
-			'position'				: participant_data["teamPosition"],
-			'kills' 				: participant_data["kills"],
-			'assists' 				: participant_data["assists"],
-			'deaths' 				: participant_data["deaths"],
-			'double_kills' 			: participant_data["doubleKills"],
-			'triple_kills' 			: participant_data["tripleKills"],
-			'quadra_kills' 			: participant_data["quadraKills"],
-			'penta_kills' 			: participant_data["pentaKills"],
-			'total_minion_kills' 	: participant_data["totalMinionsKilled"],
-			'gold_earned' 			: participant_data["goldEarned"],
-			'gold_spent' 			: participant_data["goldSpent"],
-			'total_damage_dealt' 					: participant_data["totalDamageDealt"],
-			'total_damage_dealt_to_champions' 		: participant_data["totalDamageDealtToChampions"],
-			'total_damage_shielded_on_teammates' 	: participant_data["totalDamageShieldedOnTeammates"],
-			'total_damage_taken' 					: participant_data["totalDamageTaken"],
-			'physical_damage_dealt' 				: participant_data["physicalDamageDealt"],
-			'physical_damage_dealt_to_champions' 	: participant_data["physicalDamageDealtToChampions"],
-			'physical_damage_taken' 				: participant_data["physicalDamageTaken"],
-			'magic_damage_dealt' 					: participant_data["magicDamageDealt"],
-			'magic_damage_dealt_to_champions' 		: participant_data["magicDamageDealtToChampions"],
-			'magic_damage_taken' 					: participant_data["magicDamageTaken"],
-			'true_damage_dealt' 					: participant_data["trueDamageDealt"],
-			'true_damage_dealt_to_champions' 		: participant_data["trueDamageDealtToChampions"],
-			'true_damage_taken' 					: participant_data["trueDamageTaken"],
-			'total_heal' 							: participant_data["totalHeal"],
-			'total_heal_on_teammates' 				: participant_data["totalHealsOnTeammates"],
-			'self_mitigated_damage'					: participant_data["damageSelfMitigated"],
-			'damage_dealt_to_turrets'				: participant_data["damageDealtToTurrets"],
-			'damage_dealt_to_objectives'			: participant_data["damageDealtToObjectives"],
-			'damage_dealt_to_buildings'				: participant_data["damageDealtToBuildings"],
-			'time_ccing_others' 					: participant_data["timeCCingOthers"],
-			'spell_1_casts' 		: participant_data["spell1Casts"],
-			'spell_2_casts' 		: participant_data["spell2Casts"],
-			'spell_3_casts' 		: participant_data["spell3Casts"],
-			'spell_4_casts' 		: participant_data["spell4Casts"],
-			'summoner_1_casts' 		: participant_data["summoner1Casts"],
-			'summoner_1_id' 		: participant_data["summoner1Id"],
-			'summoner_2_casts' 		: participant_data["summoner2Casts"],
-			'summoner_2_id' 		: participant_data["summoner2Id"],
-			'baron_kills' 			: participant_data["baronKills"],
-			'turret_kills' 			: participant_data["turretKills"],
-			'turret_takedowns' 		: participant_data["turretTakedowns"],
-			'turrets_lost' 			: participant_data["turretsLost"],
-			'bounty_level' 			: participant_data["bountyLevel"],
-			'vision_score' 			: participant_data["visionScore"],
-			'vision_wards_bought' 	: participant_data["visionWardsBoughtInGame"],
-			'wards_killed' 			: participant_data["wardsKilled"],
-			'wards_placed' 			: participant_data["wardsPlaced"],
-			'champ_experience' 		: participant_data["champExperience"],
-			'champ_level' 			: participant_data["champLevel"],
-			'champ_id' 				: participant_data["championId"]
-		})
+		team_data = await team.get_by_ids(team_ids)
 
-import struct
+		team_participant_data = {
+			'match_id': match_id,
+			'side': ['blue', 'red'][team_index],
+			'team_id': team_data['_id'],
+			'baron_first': json_data['info']['teams'][team_index]['objectives']['baron']['first'],
+			'baron_kills': json_data['info']['teams'][team_index]['objectives']['baron']['kills'],
+			'champion_first': json_data['info']['teams'][team_index]['objectives']['champion']['first'],
+			'champion_kills': json_data['info']['teams'][team_index]['objectives']['champion']['kills'],
+			'dragon_first': json_data['info']['teams'][team_index]['objectives']['dragon']['first'],
+			'dragon_kills': json_data['info']['teams'][team_index]['objectives']['dragon']['kills'],
+			'inhibitor_first': json_data['info']['teams'][team_index]['objectives']['inhibitor']['first'],
+			'inhibitor_kills': json_data['info']['teams'][team_index]['objectives']['inhibitor']['kills'],
+			'rift_herald_first': json_data['info']['teams'][team_index]['objectives']['riftHerald']['first'],
+			'rift_herald_kills': json_data['info']['teams'][team_index]['objectives']['riftHerald']['kills'],
+			'tower_first': json_data['info']['teams'][team_index]['objectives']['tower']['first'],
+			'tower_kills': json_data['info']['teams'][team_index]['objectives']['tower']['kills'],
+			'win': json_data['info']['teams'][team_index]['win']
+		}
+		for i in range(0, len(json_data['info']['teams'][team_index]['bans'])):
+			team_participant_data['ban_'+str(i)] = json_data['info']['teams'][team_index]['bans'][i]['championId']
+		for i in range(len(json_data['info']['teams'][team_index]['bans']), 5):
+			team_participant_data['ban_'+str(i)] = None
 
-def team_ids_to_bytes(summoner_ids: list):
-	summoner_ids.sort()
-	return struct.pack('QQQQQ', *summoner_ids)
+		await execute(insert_participant_team_query, team_participant_data)
+		participant_team_id = (await select('SELECT _id FROM participant_team WHERE match_id=:match_id AND team_id=:team_id', team_participant_data))[0]['_id']
 
-def team_bytes_to_ids(data: bytes):
-	return list(struct.unpack('QQQQQ', data))
+		for summoner_id in team_ids:
+			summoner_data = await summoner.get_by_id(summoner_id)
+			index = json_data['metadata']['participants'].index(summoner_data['puuid'])
+			participant_data = json_data['info']['participants'][index].copy()
+
+			participant_data['match_id'] = match_id
+			participant_data['summoner_id'] = summoner_id
+			participant_data['participant_team'] = participant_team_id
+
+			participant_data['perk_defence'] = 		json_data['info']['participants'][index]['perks']['statPerks']['defense']
+			participant_data['perk_flex'] = 		json_data['info']['participants'][index]['perks']['statPerks']['flex']
+			participant_data['perk_offense'] = 		json_data['info']['participants'][index]['perks']['statPerks']['offense']
+			participant_data['perk_style_primary_0'] = 		json_data['info']['participants'][index]['perks']['styles'][0]['selections'][0]['perk']
+			participant_data['perk_style_primary_1'] = 		json_data['info']['participants'][index]['perks']['styles'][0]['selections'][1]['perk']
+			participant_data['perk_style_primary_2'] = 		json_data['info']['participants'][index]['perks']['styles'][0]['selections'][2]['perk']
+			participant_data['perk_style_primary_3'] = 		json_data['info']['participants'][index]['perks']['styles'][0]['selections'][3]['perk']
+			participant_data['perk_style_secondary_0'] = 	json_data['info']['participants'][index]['perks']['styles'][1]['selections'][0]['perk']
+			participant_data['perk_style_secondary_1'] = 	json_data['info']['participants'][index]['perks']['styles'][1]['selections'][1]['perk']
+
+			await execute(insert_participant_query, participant_data)

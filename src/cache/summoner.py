@@ -1,7 +1,7 @@
 import os.path as path
 import json
 
-from .cache import directory_summoners
+from .core import directory_summoners
 
 def get_info(puuid: str) -> dict:
 	file_path = _file_path(puuid)

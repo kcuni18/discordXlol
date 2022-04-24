@@ -1,16 +1,22 @@
-import lol_api
+import lol
 import cache
 import db
 
+import summoner
+
 def request_info(id: int) -> dict:
-	if cache.match_exists(id):
-		return cache.match_get_info(id)
+	if cache.match.exists(id):
+		return cache.match.get_info(id)
 	else:
-		return lol_api.match_get_info(id)
+		return lol.match.get_info(id)
 
 async def record(json_data: dict):
 	match_id = json_data['info']['gameId']
-	if not cache.match_exists(match_id):
-		cache.match_record(json_data)
-	if not (await db.match_is_recorded(match_id)):
-		await db.match_record(json_data)
+	if not cache.match.exists(match_id):
+		cache.match.record(json_data)
+	if not (await db.match.is_recorded(match_id)):
+		for puuid in json_data["metadata"]["participants"]:
+			if not (await db.summoner.is_registered_by_puuid(puuid)):
+				summoner_data = summoner.request_info(puuid)
+				await summoner.register(summoner_data)
+		await db.match.record(json_data)

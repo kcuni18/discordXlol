@@ -17,3 +17,6 @@ if EXIST "setup_summoner.txt" (
 if EXIST "bot_owner_id.txt" (
 	set /p bot_owner_id=<bot_owner_id.txt
 )
+if EXIST "version.txt" (
+	set /p version=<version.txt
+)

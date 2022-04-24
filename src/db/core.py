@@ -10,6 +10,7 @@ async def init():
 	if len(data) == 0:
 		with open('src/queries/database.sql') as file:
 			await db.executescript(file.read())
+		await db.commit()
 
 async def terminate():
 	global db

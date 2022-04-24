@@ -1,4 +1,4 @@
-from .lol_api import request
+from .core import request
 
 def get_by_puuid(puuid: str) -> dict:
 	link = "https://eun1.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}?api_key={api_key}"

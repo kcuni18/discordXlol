@@ -1,11 +1,14 @@
-from .match 	import get_info 		as match_get_info
-from .match 	import exists 			as match_exists
-from .match 	import record 			as match_record
-from .match 	import _file_path 		as match_file_path
+from . import match
+from . import summoner
+from .core import *
 
-from .summoner 	import get_info 		as summoner_get_info
-from .summoner 	import exists 			as summoner_exists
-from .summoner 	import register 		as summoner_register
-from .summoner 	import _file_path 		as summoner_file_path
+import os.path as path
+import os
 
-from .cache 	import init 			as init
+def init():
+	if not path.isdir(directory):
+		os.mkdir(directory)
+	if not path.isdir(directory_matches):
+		os.mkdir(directory_matches)
+	if not path.isdir(directory_summoners):
+		os.mkdir(directory_summoners)

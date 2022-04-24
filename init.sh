@@ -17,3 +17,6 @@ fi
 if [ -f "bot_owner_id.txt" ]; then
 	bot_owner_id=`cat bot_owner_id.txt`
 fi
+if [ -f "version.txt" ]; then
+	version=`cat version.txt`
+fi

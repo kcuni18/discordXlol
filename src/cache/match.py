@@ -1,7 +1,7 @@
 import os.path as path
 import json
 
-from .cache import directory_matches
+from .core import directory_matches
 
 def get_info(id: int) -> dict:
 	file_path = _file_path(id)

@@ -7,7 +7,8 @@ __pycache__/
 # config
 api_key.txt
 bot_token.txt
-guild_id.txt
+guild_id_list.txt
+bot_owner_id_list.txt
 setup_summoner.txt
 
 # data

@@ -10,9 +10,9 @@ import match
 import summoner
 
 ###### CONFIG ######
-bot_owner_id=int(os.environ['bot_owner_id'])
+bot_owner_id_list=[ int(line) for line in os.environ['bot_owner_id_list'].split('\n') ]
+guild_id_list=os.environ['guild_id_list'].split('\n')
 bot_token=os.environ['bot_token']
-guild_id=os.environ['guild_id']
 version=os.environ['version']
 
 
@@ -33,7 +33,7 @@ async def on_ready():
 async def list_names(ctx: discord.AutocompleteContext):
 	return await db.summoner.get_name_list(ctx.value)
 
-@bot.slash_command(guild_ids=[guild_id], description="Link discord user to summoner.")
+@bot.slash_command(guild_ids=guild_id_list, description="Link discord user to summoner.")
 async def link(ctx: discord.ApplicationContext, summoner_name: discord.Option(str, "A league of legends username.", autocomplete=list_names)):
 	user = ctx.author
 
@@ -58,7 +58,7 @@ async def link(ctx: discord.ApplicationContext, summoner_name: discord.Option(st
 	return await ctx.respond(f"Linked successfully with `{summoner_name}`.")
 
 
-@bot.slash_command(guild_ids=[guild_id], description="Find the user linked with a summoner.")
+@bot.slash_command(guild_ids=guild_id_list, description="Find the user linked with a summoner.")
 async def find_summoner(ctx: discord.ApplicationContext, user: discord.Option(discord.User, "The user you want to find the summoner for.", default=None)):
 	if user is None:
 		user = ctx.author
@@ -69,7 +69,7 @@ async def find_summoner(ctx: discord.ApplicationContext, user: discord.Option(di
 
 	return await ctx.respond(f'Linked summoner of {user.mention} is `{summoner_data["name"]}`.')
 
-@bot.slash_command(guild_ids=[guild_id], description="Find the summoner linked with a user.")
+@bot.slash_command(guild_ids=guild_id_list, description="Find the summoner linked with a user.")
 async def find_user(ctx: discord.ApplicationContext, summoner_name: discord.Option(str, "A league of legends username.", autocomplete=list_names)):
 	summoner_data = await db.summoner.get_by_name(summoner_name)
 	if summoner_data is None:
@@ -79,7 +79,7 @@ async def find_user(ctx: discord.ApplicationContext, summoner_name: discord.Opti
 	user = await bot.fetch_user(summoner_data['discord_id'])
 	return await ctx.respond(f'Summoner `{summoner_name}` is linked to {user.mention}.')
 
-@bot.slash_command(guild_ids=[guild_id], description="Unlink from summoner.")
+@bot.slash_command(guild_ids=guild_id_list, description="Unlink from summoner.")
 async def unlink(ctx: discord.ApplicationContext):
 
 	if not await db.summoner.is_registered_by_discord_user(ctx.author):
@@ -93,7 +93,7 @@ async def unlink(ctx: discord.ApplicationContext):
 
 	return await ctx.respond(f"Unlinked successfully.")
 
-@bot.slash_command(guild_ids=[guild_id], description="Register a summoner.")
+@bot.slash_command(guild_ids=guild_id_list, description="Register a summoner.")
 async def register(ctx: discord.ApplicationContext, summoner_name: discord.Option(str, "A league of legends username.")):
 	if await db.summoner.is_registered_by_name(summoner_name):
 		return await ctx.respond(f'Summoner `{summoner_name}` is already registered.')
@@ -110,7 +110,7 @@ async def register(ctx: discord.ApplicationContext, summoner_name: discord.Optio
 	return await ctx.respond(f'Registered summoner `{summoner_name}` successfully.')
 
 
-@bot.slash_command(guild_ids=[guild_id], description="Record matches.")
+@bot.slash_command(guild_ids=guild_id_list, description="Record matches.")
 async def record_match(ctx: discord.ApplicationContext,
 		user: discord.Option(discord.User, "One of the users who played in the custom game.", default=None),
 		match_start: discord.Option(int, "The start index of custom games to be checked.", default=0, min_value=0, max_value=99),
@@ -146,7 +146,7 @@ async def list_champions(ctx: discord.AutocompleteContext):
 	return [ obj['name'] for obj in await db.select('SELECT name FROM champion WHERE name LIKE :pattern', {'pattern':'%'+ctx.value+'%'}) ]
 
 
-@bot.slash_command(guild_ids=[guild_id], description="Find winrate of user.")
+@bot.slash_command(guild_ids=guild_id_list, description="Find winrate of user.")
 async def winrate(ctx: discord.ApplicationContext,
 	user: discord.Option(discord.User, "Tag of the user you want to find the winrate for.", default=None),
 	_with: discord.Option(discord.User, "Ally of user.", default=None),
@@ -175,9 +175,11 @@ async def winrate(ctx: discord.ApplicationContext,
 		vs_summoner_data = None
 
 	if champion_name is not None:
-		champion_data = (await db.select('SELECT * FROM champion WHERE name=:name', {'name':champion_name}))[0]
+		champion_data = (await db.select('SELECT * FROM champion WHERE name=:name', {'name':champion_name}))
 		if champion_data is None:
 			return await ctx.respond(f'Champion {champion_name} does not exist in the database.')
+		else:
+			champion_data = champion_data[0]
 	else:
 		champion_data = None
 
@@ -229,11 +231,11 @@ async def winrate(ctx: discord.ApplicationContext,
 	return await ctx.respond(response)
 
 ###### ADMIN COMMAND ######
-@bot.slash_command(guild_ids=[guild_id], description="Link discord user to summoner.(Admin only)")
+@bot.slash_command(guild_ids=guild_id_list, description="Link discord user to summoner.(Admin only)")
 async def admin_link(ctx: discord.ApplicationContext,
 		user: discord.Option(discord.User, "User to link."),
 		summoner_name: discord.Option(str, "A league of legends username.", autocomplete=list_names)):
-	if not (await bot.is_owner(ctx.author)) and ctx.author.id != bot_owner_id:
+	if not (await bot.is_owner(ctx.author)) and ctx.author.id not in bot_owner_id_list:
 		return await ctx.respond(f"Only owner can use this command.")
 
 	summoner_data = await db.summoner.get_by_discord_user(user)
@@ -256,9 +258,9 @@ async def admin_link(ctx: discord.ApplicationContext,
 
 	return await ctx.respond(f"Linked successfully user {user.mention} with `{summoner_name}`.")
 
-@bot.slash_command(guild_ids=[guild_id], description="Unlink user from summoner.(Admin only)")
+@bot.slash_command(guild_ids=guild_id_list, description="Unlink user from summoner.(Admin only)")
 async def admin_unlink(ctx: discord.ApplicationContext, user: discord.Option(discord.User, "User to unlink.")):
-	if not (await bot.is_owner(ctx.author)) and ctx.author.id != bot_owner_id:
+	if not (await bot.is_owner(ctx.author)) and ctx.author.id not in bot_owner_id_list:
 		return await ctx.respond(f"Only owner can use this command.")
 
 	if not await db.summoner.is_registered_by_discord_user(user):
@@ -272,9 +274,9 @@ async def admin_unlink(ctx: discord.ApplicationContext, user: discord.Option(dis
 
 	return await ctx.respond(f"Successfully unlinked {user.mention}.")
 
-@bot.slash_command(guild_ids=[guild_id], description="Shuts down the bot.(Admin only)")
+@bot.slash_command(guild_ids=guild_id_list, description="Shuts down the bot.(Admin only)")
 async def admin_shutdown(ctx: discord.ApplicationContext):
-	if await bot.is_owner(ctx.author) or ctx.author.id == bot_owner_id:
+	if await bot.is_owner(ctx.author) or ctx.author.id in bot_owner_id_list:
 		await ctx.respond('Logging out!')
 		await terminate()
 		await bot.close()

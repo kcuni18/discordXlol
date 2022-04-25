@@ -142,15 +142,20 @@ async def record_match(ctx: discord.ApplicationContext,
 				print(f"Match {match_id} recorded.")
 	return await ctx.followup.send(f"{match_count} {'game was' if match_count == 1 else 'games were'} checked. Of those {recorded_games} {'was' if recorded_games == 1 else 'were'} new and got recorded.")
 
+async def list_champions(ctx: discord.AutocompleteContext):
+	return [ obj['name'] for obj in await db.select('SELECT name FROM champion WHERE name LIKE :pattern', {'pattern':'%'+ctx.value+'%'}) ]
+
+
 @bot.slash_command(guild_ids=[guild_id], description="Find winrate of user.")
 async def winrate(ctx: discord.ApplicationContext,
 	user: discord.Option(discord.User, "Tag of the user you want to find the winrate for.", default=None),
-	_with: discord.Option(discord.User, "with", default=None),
-	_vs: discord.Option(discord.User, "vs", default=None)):
+	_with: discord.Option(discord.User, "Ally of user.", default=None),
+	_vs: discord.Option(discord.User, "Opponent of user.", default=None),
+	champion_name: discord.Option(str, "Name of the champion played by the user", default=None, autocomplete=list_champions)):
 
 	if user is None:
 		user = ctx.author
-	
+
 	summoner_data = await db.summoner.get_by_discord_user(user)
 	if summoner_data is None:
 		return await ctx.respond(f'User {user.mention} is not linked to any summoner.')
@@ -169,6 +174,13 @@ async def winrate(ctx: discord.ApplicationContext,
 	else:
 		vs_summoner_data = None
 
+	if champion_name is not None:
+		champion_data = (await db.select('SELECT * FROM champion WHERE name=:name', {'name':champion_name}))[0]
+		if champion_data is None:
+			return await ctx.respond(f'Champion {champion_name} does not exist in the database.')
+	else:
+		champion_data = None
+
 	wins = 0
 	games = 0
 
@@ -177,10 +189,16 @@ async def winrate(ctx: discord.ApplicationContext,
 		JOIN summoner ON participant.summoner_id = summoner._id
 		WHERE summoner._id=:id
 	''', {'id':summoner_data['_id']}))
+
 	for participant in participants:
+
+		if champion_data is not None:
+			if champion_data['id'] != participant['championId']:
+				continue
+
 		match_id = participant['match_id']
 		participant_teams = (await db.select('SELECT _id, team_id FROM participant_team WHERE match_id=:match_id', {'match_id':match_id}))
-		
+
 		friendly_participant_team = participant_teams[0] if participant_teams[0]['_id'] == participant['participant_team'] else participant_teams[1]
 		ennemy_participant_team = participant_teams[0] if participant_teams[0]['_id'] != participant['participant_team'] else participant_teams[1]
 
@@ -193,11 +211,13 @@ async def winrate(ctx: discord.ApplicationContext,
 		if vs_summoner_data is not None:
 			if vs_summoner_data['_id'] not in db.team.dict_to_ids(ennemy_team):
 				continue
-	
+
 		wins = wins + participant['win']
 		games = games + 1
 
 	response = f"Summoner `{summoner_data['name']}` has played `{games}` {'match' if games == 1 else 'matches'}"
+	if champion_data is not None:
+		response += f" as `{champion_name}`"
 	if with_summoner_data is not None:
 		response += f" with `{with_summoner_data['name']}`"
 		if vs_summoner_data is not None:

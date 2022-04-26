@@ -184,7 +184,7 @@ async def winrate(ctx: discord.ApplicationContext,
 
 	if champion_name is not None:
 		champion_data = (await db.select('SELECT * FROM champion WHERE name=:name', {'name':champion_name}))
-		if champion_data is None:
+		if len(champion_data) == 0:
 			return await ctx.respond(f'Champion `{champion_name}` does not exist in the database.')
 		else:
 			champion_data = champion_data[0]

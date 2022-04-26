@@ -242,6 +242,8 @@ async def winrate(ctx: discord.ApplicationContext,
 		games = games + 1
 
 	response = f"Summoner `{summoner_data['name']}` has played `{games}` {'match' if games == 1 else 'matches'}"
+	if role is not None:
+		response += f" in the `{role}` position"
 	if champion_data is not None:
 		response += f" as `{champion_name}`"
 	if with_summoner_data is not None:

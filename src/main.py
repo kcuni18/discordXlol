@@ -145,13 +145,21 @@ async def record_match(ctx: discord.ApplicationContext,
 async def list_champions(ctx: discord.AutocompleteContext):
 	return [ obj['name'] for obj in await db.select('SELECT name FROM champion WHERE name LIKE :pattern', {'pattern':'%'+ctx.value+'%'}) ]
 
+role_list = ["JUNGLE", "MIDDLE", "TOP", "UTILITY", "SUPPORT", "BOTTOM", "ADC"]
+async def list_roles(ctx: discord.AutocompleteContext):
+	_list = []
+	for role in role_list:
+		if role.find(ctx.value) != -1:
+			_list.append(role)
+	return _list
 
 @bot.slash_command(guild_ids=guild_id_list, description="Find winrate of user.")
 async def winrate(ctx: discord.ApplicationContext,
 	user: discord.Option(discord.User, "Tag of the user you want to find the winrate for.", default=None),
 	_with: discord.Option(discord.User, "Ally of user.", default=None),
 	_vs: discord.Option(discord.User, "Opponent of user.", default=None),
-	champion_name: discord.Option(str, "Name of the champion played by the user", default=None, autocomplete=list_champions)):
+	champion_name: discord.Option(str, "Name of the champion played by the user", default=None, autocomplete=list_champions),
+	role: discord.Option(str, "Role user played during the game.", default=None, autocomplete=list_roles)):
 
 	if user is None:
 		user = ctx.author
@@ -177,11 +185,23 @@ async def winrate(ctx: discord.ApplicationContext,
 	if champion_name is not None:
 		champion_data = (await db.select('SELECT * FROM champion WHERE name=:name', {'name':champion_name}))
 		if champion_data is None:
-			return await ctx.respond(f'Champion {champion_name} does not exist in the database.')
+			return await ctx.respond(f'Champion `{champion_name}` does not exist in the database.')
 		else:
 			champion_data = champion_data[0]
 	else:
 		champion_data = None
+
+	if role is not None:
+		if role == "SUPPORT":
+			role_id = "UTILITY"
+		elif role == "ADC":
+			role_id = "BOTTOM"
+		elif role in role_list:
+			role_id = role
+		else:
+			return await ctx.respond(f'Role `{role}` is not a valid role.')
+	else:
+		role_id = None
 
 	wins = 0
 	games = 0
@@ -196,6 +216,10 @@ async def winrate(ctx: discord.ApplicationContext,
 
 		if champion_data is not None:
 			if champion_data['id'] != participant['championId']:
+				continue
+		
+		if role_id is not None:
+			if role_id != participant['teamPosition']:
 				continue
 
 		match_id = participant['match_id']

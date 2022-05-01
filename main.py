@@ -1,31 +1,23 @@
 from http.client import HTTPException
+from pydoc import describe
 import discord
-import os
 
-import cache
-import db
-import lol
-
-import match
-import summoner
+import src
+import src.db as db
+import src.lol as lol
 
 ###### CONFIG ######
-bot_owner_id_list=[ int(line) for line in os.environ['bot_owner_id_list'].split('\n') ]
-guild_id_list=os.environ['guild_id_list'].split('\n')
-bot_token=os.environ['bot_token']
-version=os.environ['version']
+bot_owner_id_list=src.config.settings['discord']['owner_id_list']
+guild_id_list=src.config.settings['discord']['guild_id_list']
+bot_token=src.config.credentials['discord_bot_token']
 
 
 ###### INIT ######
 bot = discord.Bot()
 
-async def init():
-	await db.init()
-	cache.init()
-
 @bot.event
 async def on_ready():
-	await init()
+	await src.db.init()
 	print(f"We have logged in as {bot.user}")
 
 ###### COMMANDS ######
@@ -105,16 +97,32 @@ async def register(ctx: discord.ApplicationContext, summoner_name: discord.Optio
 	except HTTPException as e:
 		return await ctx.respond(f'Failed to retrieve `{summoner_name}` data. {str(e)}')
 	
-	await summoner.register(summoner_data)
+	await src.summoner.register(summoner_data)
 
 	return await ctx.respond(f'Registered summoner `{summoner_name}` successfully.')
-
 
 @bot.slash_command(guild_ids=guild_id_list, description="Record matches.")
 async def record_match(ctx: discord.ApplicationContext,
 		user: discord.Option(discord.User, "One of the users who played in the custom game.", default=None),
 		match_start: discord.Option(int, "The start index of custom games to be checked.", default=0, min_value=0, max_value=99),
-		match_count: discord.Option(int, "The count of custom games to be checked.", default=1, min_value=1, max_value=100)):
+		match_count: discord.Option(int, "The count of custom games to be checked.", default=1, min_value=1, max_value=100),
+		match_id: discord.Option(int, "The id of the match.(All other options are ignored when using this one)", default=None)):
+
+	if match_id is not None:
+		if (await db.match.is_recorded(match_id)):
+			return await ctx.respond(f"Match `{match_id}` is already recorded. Skipping.")
+		else:
+			match_info = src.match.request_info(match_id)
+			#if match_info["info"]["gameType"] != "CUSTOM_GAME":
+			#	return await ctx.respond(f"Match type of `{match_id}` is {match_info['info']['gameType']}.")
+			if match_info["info"]["gameMode"] != "CLASSIC":
+				return await ctx.respond(f"Match mode is {match_info['info']['gameMode']}. Skipping.")
+			elif len(match_info["metadata"]["participants"]) != 10:
+				return await ctx.respond(f"Nr of participants is {len(match_info['metadata']['participants'])}.")
+			else:
+				await src.match.record(match_info)
+				return await ctx.respond(f"Match with id `{match_id}` was recorded successfully.")
+
 	if user is None:
 		user = ctx.author
 
@@ -124,20 +132,22 @@ async def record_match(ctx: discord.ApplicationContext,
 
 	await ctx.defer()
 	match_ids = lol.match.get_id_list(summoner_data['puuid'], match_start, match_count)
+	if len(match_ids) == 0:
+		return await ctx.followup.send(f"No matches were found for summoner `{summoner_data['name']}`.")
 	recorded_games = 0
 	for match_id in match_ids:
 		if (await db.match.is_recorded(match_id)):
 			print("Match is already recorded. Skipping.")
 		else:
-			match_info = match.request_info(match_id)
-			if match_info["info"]["gameType"] != "CUSTOM_GAME":
-				print(f"Match type is {match_info['info']['gameType']}. Skipping.")
-			elif match_info["info"]["gameMode"] != "CLASSIC":
+			match_info = src.match.request_info(match_id)
+			#if match_info["info"]["gameType"] != "CUSTOM_GAME":
+			#	print(f"Match type is {match_info['info']['gameType']}. Skipping.")
+			if match_info["info"]["gameMode"] != "CLASSIC":
 				print(f"Match mode is {match_info['info']['gameMode']}. Skipping.")
 			elif len(match_info["metadata"]["participants"]) != 10:
 				print(f"Nr of participants is {len(match_info['metadata']['participants'])}. Skipping.")
 			else:
-				await match.record(match_info)
+				await src.match.record(match_info)
 				recorded_games = recorded_games + 1
 				print(f"Match {match_id} recorded.")
 	return await ctx.followup.send(f"{match_count} {'game was' if match_count == 1 else 'games were'} checked. Of those {recorded_games} {'was' if recorded_games == 1 else 'were'} new and got recorded.")
@@ -256,8 +266,73 @@ async def winrate(ctx: discord.ApplicationContext,
 		response += f".\nOf those they have won `{wins}` and lost `{games - wins}` making a winrate of `{(wins / games * 100):.2f}%`."
 	return await ctx.respond(response)
 
-###### ADMIN COMMAND ######
-@bot.slash_command(guild_ids=guild_id_list, description="Link discord user to summoner.(Admin only)")
+###### LOBBY COMMANDS ######
+lobby_group = bot.create_group(name='lobby', description='Lobby commands.')
+
+@lobby_group.command(guild_ids=guild_id_list, name="create", description="Create a new lobby.")
+async def lobby_create(ctx: discord.ApplicationContext, lobby_name: discord.Option(str, "An optional name for the lobby.", default=None)):
+
+	lobby_list = await src.db.lobby.get_open_lobby_list("")
+	if len(lobby_list) >= 2:
+		return await ctx.respond(f"There are already {len(lobby_list)} open lobbies. Cannot create any more.")
+
+	tournamentCode = src.lol.tournament.gen_codes()[0]
+	
+	summoner_data = await src.db.summoner.get_by_discord_user(ctx.author)
+	if summoner_data is None:
+		return await ctx.respond("You are not linked to any summoner. Use /link to link to a summoner.")
+
+	await src.db.lobby.create(tournamentCode, summoner_data['_id'], lobby_name)
+
+	return await ctx.respond(f"Lobby successfully created.\nYour tournament code is `{tournamentCode}`.")
+
+async def list_lobbies(ctx: discord.AutocompleteContext):
+	return await src.db.lobby.get_open_lobby_list(ctx.value)
+
+@lobby_group.command(guild_ids=guild_id_list, name="join", description="Join the specified lobby.")
+async def lobby_join(ctx: discord.ApplicationContext, tournament_code: discord.Option(str, "The lobby tournament code.", autocomplete=list_lobbies)):
+	lobby_data = await src.db.lobby.get(tournament_code)
+	if lobby_data is None:
+		return await ctx.respond(f"Tournament code `{tournament_code}` doesn't exist.")
+	if lobby_data['open'] == 0:
+		return await ctx.respond(f"Lobby is either closed or full.")
+	
+	summoner_data = await src.db.summoner.get_by_discord_user(ctx.author)
+	if summoner_data is None:
+		return await ctx.respond("You are not linked to any summoner. Use /link to link to a summoner.")
+
+	result = await src.db.lobby.insert_summoner(tournament_code, summoner_data['_id'])
+	if result == src.db.lobby.LOBBY_IS_FULL:
+		return await ctx.respond("Cannot join. The lobby is full.")
+	if result == src.db.lobby.SUMMONER_IS_PRESENT:
+		return await ctx.respond("You are already in the lobby.")
+	return await ctx.respond(f"Successfully joined the lobby `{tournament_code}`.")
+
+@lobby_group.command(guild_ids=guild_id_list, name="list", description="Get a list of open lobbies.")
+async def lobby_list(ctx: discord.ApplicationContext):
+	_list = await src.db.lobby.get_open_lobby_list("")
+	if len(_list) == 0:
+		return await ctx.respond("There are no open lobbies.")
+	response = "Open lobbies are : "
+	for lobby_name in _list:
+		response += f"`{lobby_name}` "
+	return await ctx.respond(response)
+
+@lobby_group.command(guild_ids=guild_id_list, name="close", description="Close the specified lobby.")
+async def lobby_close(ctx: discord.ApplicationContext, tournament_code: discord.Option(str, "The lobby tournament code.", autocomplete=list_lobbies)):
+	lobby_data = await src.db.lobby.get(tournament_code)
+	if lobby_data is None:
+		return await ctx.respond(f"Lobby `{tournament_code}` doesn't exist.")
+	if lobby_data['open'] == 0:
+		return await ctx.respond(f"Lobby `{tournament_code}` is already closed.")
+	
+	await src.db.lobby.close(tournament_code)
+	return await ctx.respond(f"Lobby `{tournament_code}` successfully closed.")
+
+###### ADMIN COMMANDS ######
+admin_group = bot.create_group(name='admin', description='Admin commands.')
+
+@admin_group.command(guild_ids=guild_id_list, name="link", description="Link discord user to summoner.(Admin only)")
 async def admin_link(ctx: discord.ApplicationContext,
 		user: discord.Option(discord.User, "User to link."),
 		summoner_name: discord.Option(str, "A league of legends username.", autocomplete=list_names)):
@@ -284,7 +359,7 @@ async def admin_link(ctx: discord.ApplicationContext,
 
 	return await ctx.respond(f"Linked successfully user {user.mention} with `{summoner_name}`.")
 
-@bot.slash_command(guild_ids=guild_id_list, description="Unlink user from summoner.(Admin only)")
+@admin_group.command(guild_ids=guild_id_list, name="unlink", description="Unlink user from summoner.(Admin only)")
 async def admin_unlink(ctx: discord.ApplicationContext, user: discord.Option(discord.User, "User to unlink.")):
 	if not (await bot.is_owner(ctx.author)) and ctx.author.id not in bot_owner_id_list:
 		return await ctx.respond(f"Only owner can use this command.")
@@ -300,7 +375,7 @@ async def admin_unlink(ctx: discord.ApplicationContext, user: discord.Option(dis
 
 	return await ctx.respond(f"Successfully unlinked {user.mention}.")
 
-@bot.slash_command(guild_ids=guild_id_list, description="Shuts down the bot.(Admin only)")
+@admin_group.command(guild_ids=guild_id_list, name="shutdown", description="Shuts down the bot.(Admin only)")
 async def admin_shutdown(ctx: discord.ApplicationContext):
 	if await bot.is_owner(ctx.author) or ctx.author.id in bot_owner_id_list:
 		await ctx.respond('Logging out!')

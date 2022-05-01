@@ -2,11 +2,11 @@ from .core import execute, select
 from . import summoner
 from . import team
 
-with open('src/queries/insert_match.sql') as file:
+with open('queries/insert_match.sql') as file:
 	insert_match_query = file.read()
-with open('src/queries/insert_participant.sql') as file:
+with open('queries/insert_participant.sql') as file:
 	insert_participant_query = file.read()
-with open('src/queries/insert_participant_team.sql') as file:
+with open('queries/insert_participant_team.sql') as file:
 	insert_participant_team_query = file.read()
 
 

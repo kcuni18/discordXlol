@@ -1,6 +1,6 @@
-import lol
-import cache
-import db
+from . import lol
+from . import cache
+from . import db
 
 def request_info(puuid: str) -> dict:
 	if cache.summoner.exists(puuid):

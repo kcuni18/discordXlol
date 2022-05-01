@@ -1,9 +1,9 @@
-# v0.0.0 -> v1.0.*
+# v1.* -> v2.*
 
 import asyncio
 import json
 
-import db
+from src import db
 
 async def run():
 	await db.init()
@@ -14,7 +14,7 @@ async def run():
 		file.write(json.dumps(summoner_data))
 	
 	# matches
-	match_ids = [ obj['id'] for obj in (await db.select('SELECT id FROM match')) ]
+	match_ids = [ obj['gameId'] for obj in (await db.select('SELECT gameId FROM match')) ]
 	with open('matches.json', 'w') as file:
 		file.write(json.dumps(match_ids))
 

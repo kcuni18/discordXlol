@@ -1,11 +1,11 @@
-# v0.0.0 -> v1.0.*
+# v1.* -> v2.*
 
 import asyncio
 import json
 
-import db
-import match
-import summoner
+from src import db
+from src import match
+from src import summoner
 
 async def run():
 	await db.init()

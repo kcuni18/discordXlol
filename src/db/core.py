@@ -8,7 +8,9 @@ async def init():
 	db.row_factory = _dict_factory
 	data = await select('SELECT name FROM sqlite_master WHERE type="table" AND name="champion";')
 	if len(data) == 0:
-		with open('src/queries/database.sql') as file:
+		with open('queries/database.sql') as file:
+			await db.executescript(file.read())
+		with open('queries/data.sql') as file:
 			await db.executescript(file.read())
 		await db.commit()
 

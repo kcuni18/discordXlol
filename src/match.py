@@ -1,8 +1,8 @@
-import lol
-import cache
-import db
+from . import lol
+from . import cache
+from . import db
 
-import summoner
+from . import summoner
 
 def request_info(id: int) -> dict:
 	if cache.match.exists(id):

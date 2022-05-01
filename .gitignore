@@ -10,9 +10,14 @@ bot_token.txt
 guild_id_list.txt
 bot_owner_id_list.txt
 setup_summoner.txt
+config.json
+
+provider_id.txt
+tournament_id.txt
 
 # data
-database*
+database
+database-journal
 *.json
 *.bin
 

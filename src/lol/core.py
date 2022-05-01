@@ -1,24 +1,44 @@
-from http.client import HTTPException
-import requests
 import json
 import time
-import os
+import requests
+from http.client import HTTPException
 
-# global_variables
-api_key=os.environ['api_key']
+from .. import config
 
-# request wrapper to retry when request fails
-def request(link: str, params: dict):
+api_key=config.credentials['lol_api_key']
+
+def get(link: str, params: dict = {}):
 	params['api_key'] = api_key
-	link = link.format(**params)
-	response = requests.get(link)
+	response = requests.get(link, params=params)
 	while response.status_code == 429:
 		retry_time = int(response.headers.get('Retry-After'))
-		print(f"{json.dumps(json.loads(response.text)['status']['message'])} Retrying in {retry_time} seconds.")
+		print(f"{json.dumps(response.text)} Retrying in {retry_time} seconds.")
 		time.sleep(retry_time + 1)
-		response = requests.get(link)
-	if response.status_code == 404:
-		raise KeyError(f"{link} not found")
+		response = requests.get(link, params=params)
 	if response.status_code != 200:
-		raise HTTPException(f"Request failed. Status code {response.status_code}.\n{json.loads(response.text)['status']['message']}")
+		raise HTTPException(f"Request failed. Status code {response.status_code}.\n{response.text}")
+	return json.loads(response.text)
+
+def post(link: str, params: dict = {}, data: dict = {}):
+	params['api_key'] = api_key
+	response = requests.post(link, params=params, data=json.dumps(data))
+	while response.status_code == 429:
+		retry_time = int(response.headers.get('Retry-After'))
+		print(f"{json.dumps(response.text)} Retrying in {retry_time} seconds.")
+		time.sleep(retry_time + 1)
+		response = requests.post(link, params=params, data=json.dumps(data))
+	if response.status_code != 200:
+		raise HTTPException(f"Request failed. Status code {response.status_code}.\n{response.text}")
+	return json.loads(response.text)
+
+def put(link: str, params: dict = {}, data: dict = {}):
+	params['api_key'] = api_key
+	response = requests.put(link, params=params, data=json.dumps(data))
+	while response.status_code == 429:
+		retry_time = int(response.headers.get('Retry-After'))
+		print(f"{json.dumps(response.text)} Retrying in {retry_time} seconds.")
+		time.sleep(retry_time + 1)
+		response = requests.put(link, params=params, data=json.dumps(data))
+	if response.status_code != 200:
+		raise HTTPException(f"Request failed. Status code {response.status_code}.\n{response.text}")
 	return json.loads(response.text)

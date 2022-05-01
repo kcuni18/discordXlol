@@ -19,6 +19,7 @@ tournament_id.txt
 database
 database-journal
 *.json
+!config_example.json
 *.bin
 
 # testing

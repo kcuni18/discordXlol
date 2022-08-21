@@ -5,5 +5,3 @@ if NOT EXIST .venv (
 )
 CALL init.bat
 python -m pip install -r requirements.txt
-
-python src\setup.py

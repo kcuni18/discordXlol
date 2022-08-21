@@ -3,9 +3,6 @@ import json
 with open("config.json", 'r') as file:
 	data = json.loads(file.read())
 
-credentials = data['credentials']
-settings = data['settings']
-
 _regions = {
 	"BR"	: "BR1",
  	"EUNE"	: "EUN1",
@@ -19,4 +16,4 @@ _regions = {
 	"TR"	: "TR1"
 }
 
-settings['lol']['match_id_prefix'] = _regions[settings['lol']['game_region']]
+data['lol']['match_id_prefix'] = _regions[data['lol']['region']]

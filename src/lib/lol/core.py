@@ -5,7 +5,7 @@ from http.client import HTTPException
 
 from .. import config
 
-api_key=config.credentials['lol_api_key']
+api_key=config.data['lol']['api_key']
 
 def get(link: str, params: dict = {}):
 	params['api_key'] = api_key

@@ -11,7 +11,7 @@ with open('queries/insert_participant_team.sql') as file:
 
 
 async def get(id: int):
-	data = await select(f'SELECT * FROM match WHERE gameId=:id', {'id':id})
+	data = await select(f'SELECT * FROM match WHERE id=:id', {'id':id})
 	if len(data) != 1:
 		return None
 	return data
@@ -22,8 +22,40 @@ async def is_recorded(id: int):
 		return False
 	return True
 
-async def record(json_data: dict):
+async def record_from_replay(match_id: int, json_data: dict):
+	await execute(insert_match_query, { "id": match_id, "gameLength": json_data['gameLength'] })
 
+	summoner_ids = [ (await summoner.get_by_name(participant['NAME']))['_id'] for participant in json_data['statsJson'] ]
+	teams_ids = [ summoner_ids[:5], summoner_ids[5:] ]
+
+	for team_index, team_ids in enumerate(teams_ids):
+		if not await team.is_registered_by_ids(team_ids):
+			await team.register(team_ids)
+
+		team_data = await team.get_by_ids(team_ids)
+
+		team_participant_data = {
+			'match_id': match_id,
+			'team_id': team_data['_id'],
+			'side': ['blue', 'red'][team_index],
+			'win':  1 if json_data['statsJson'][team_index * 5] == "Win" else 0
+		}
+		await execute(insert_participant_team_query, team_participant_data)
+		participant_team_id = (await select('SELECT _id FROM participant_team WHERE match_id=:match_id AND team_id=:team_id', team_participant_data))[0]['_id']
+
+		for index, summoner_id in enumerate(team_ids):
+			participant_data = json_data['statsJson'][index + team_index * 5].copy()
+
+			participant_data['match_id'] = match_id
+			participant_data['summoner_id'] = summoner_id
+			participant_data['participant_team'] = participant_team_id
+			participant_data['WIN'] = 1 if participant_data['WIN'] == 'Win' else 0
+
+			await execute(insert_participant_query, participant_data)
+
+# out of date, might need in future
+'''
+async def record_from_api(json_data: dict):
 	match_id = json_data['info']['gameId']
 	await execute(insert_match_query, json_data['info'])
 
@@ -82,3 +114,4 @@ async def record(json_data: dict):
 			participant_data['perk_style_secondary_1'] = 	json_data['info']['participants'][index]['perks']['styles'][1]['selections'][1]['perk']
 
 			await execute(insert_participant_query, participant_data)
+'''

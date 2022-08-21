@@ -5,5 +5,3 @@ if [ ! -d ".venv" ]; then
 fi
 ./init.sh
 python -m pip install -r requirements.txt
-
-python src/setup.py

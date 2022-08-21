@@ -6,13 +6,10 @@ async def init():
 	global db
 	db = await aiosqlite.connect('database')
 	db.row_factory = _dict_factory
+
+async def exists():
 	data = await select('SELECT name FROM sqlite_master WHERE type="table" AND name="champion";')
-	if len(data) == 0:
-		with open('queries/database.sql') as file:
-			await db.executescript(file.read())
-		with open('queries/data.sql') as file:
-			await db.executescript(file.read())
-		await db.commit()
+	return len(data) != 0
 
 async def terminate():
 	global db
@@ -34,6 +31,9 @@ async def select(query: str, params: dict = None) -> dict:
 
 async def execute(query: str, params: dict = None):
 	await db.execute(query, params)
+
+async def executescript(queries: str):
+	await db.executescript(queries)
 
 async def commit():
 	await db.commit()

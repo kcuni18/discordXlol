@@ -1,33 +1,29 @@
-# v1.* -> v2.*
-
 import asyncio
 import json
 
-from src import db
-from src import match
-from src import summoner
+from lib import *
 
 async def run():
-	await db.init()
+	await init()
 	
 	# summoners
 	with open('summoners.json', 'r') as file:
 		summoners_data = json.loads(file.read())
 	
 	for data in summoners_data:
-		summoner_data = summoner.request_info(data['puuid'])
-		await summoner.register(summoner_data)
+		summoner_data = lol.summoner.get_by_puuid(data['puuid'])
+		await db.summoner.register(summoner_data)
 		await db.summoner.set_discord_id(summoner_data['name'], data['discord_id'])
 
 	# matches
 	with open('matches.json', 'r') as file:
 		match_ids = json.loads(file.read())
 	
-	for match_id in match_ids:
-		match_info = match.request_info(match_id)
-		await match.record(match_info)
+	#for match_id in match_ids:
+	#	match_info = lol.match.get_info(match_id)
+	#	await db.match.record(match_info)
 
-	await db.terminate()
+	await terminate()
 
 if __name__ == '__main__':
 	asyncio.run(run())

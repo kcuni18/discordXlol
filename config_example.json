@@ -1,24 +1,18 @@
 {
-	"credentials": {
-		"lol_api_key": "",
-		"discord_bot_token": ""
+	"lol": {
+		"api_key": "",
+		"region": ""
 	},
-	"settings": {
-		"lol": {
-			"game_region": "",
-			"tournament_api": "",
-			"tournament_callback_url": ""
-		},
-		"discord": {
-			"owner_id_list": [
+	"discord": {
+		"bot_token": "",
+		"owner_id_list": [
 				
-			],
-			"guild_id_list": [
-				
-			]
-		},
-		"setup": {
-			"summoner": ""
-		}
+		],
+		"guild_id_list": [
+			
+		]
+	},
+	"setup": {
+		"summoner": ""
 	}
 }

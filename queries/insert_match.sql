@@ -1,30 +1,8 @@
 INSERT INTO match(
-	gameCreation,
-	gameDuration,
-	gameEndTimestamp,
-	gameId,
-	gameMode,
-	gameName,
-	gameStartTimestamp,
-	gameType,
-	gameVersion,
-	mapId,
-	platformId,
-	queueId,
-	tournamentCode
+	id,
+	gameLength
 )
 VALUES(
-	:gameCreation,
-	:gameDuration,
-	:gameEndTimestamp,
-	:gameId,
-	:gameMode,
-	:gameName,
-	:gameStartTimestamp,
-	:gameType,
-	:gameVersion,
-	:mapId,
-	:platformId,
-	:queueId,
-	:tournamentCode
+	:id,
+	:gameLength
 );

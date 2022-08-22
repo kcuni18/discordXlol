@@ -1,4 +1,4 @@
 #!/bin/bash
 
-./init.sh
+./scripts/init.sh
 python src/main.py

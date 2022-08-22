@@ -125,15 +125,18 @@ import json
 async def record_match(ctx: discord.ApplicationContext, attachment: discord.Option(discord.Attachment, "Json file extracted from a replay using roflToJson.py script")):
 	match_id = int(attachment.filename[5:15])
 	if await db.match.is_recorded(match_id):
-		return await ctx.respond(f"Match is already recorded.")
+		return await ctx.respond("Match is already recorded.")
 	
 	try:
 		lol.match.get_info(match_id)
-		return await ctx.respond(f"Match is not a custom game.")
+		return await ctx.respond("Match is not a custom game.")
 	except:
 		pass
 
 	match_data = json.loads(await attachment.read())
+
+	if len(match_data['statsJson']) != 10:
+		return await ctx.respond("Match does not contain 10 players.")
 
 	for obj in match_data['statsJson']:
 		if not await db.summoner.is_registered_by_name(obj['NAME']):
@@ -142,61 +145,60 @@ async def record_match(ctx: discord.ApplicationContext, attachment: discord.Opti
 	
 	await db.match.record_from_replay(match_id, match_data)
 
-	return await ctx.respond(f"Match recorded.")
+	return await ctx.respond("Match recorded.")
 
 # out of date, might need in future
-'''
-@bot.slash_command(guild_ids=guild_id_list, description="Record matches.")
-async def record_match(ctx: discord.ApplicationContext,
-		user: discord.Option(discord.User, "One of the users who played in the custom game.", default=None),
-		match_start: discord.Option(int, "The start index of custom games to be checked.", default=0, min_value=0, max_value=99),
-		match_count: discord.Option(int, "The count of custom games to be checked.", default=1, min_value=1, max_value=100),
-		match_id: discord.Option(int, "The id of the match.(All other options are ignored when using this one)", default=None)):
+#@bot.slash_command(guild_ids=guild_id_list, description="Record matches.")
+#async def record_match(ctx: discord.ApplicationContext,
+#		user: discord.Option(discord.User, "One of the users who played in the custom game.", default=None),
+#		match_start: discord.Option(int, "The start index of custom games to be checked.", default=0, min_value=0, max_value=99),
+#		match_count: discord.Option(int, "The count of custom games to be checked.", default=1, min_value=1, max_value=100),
+#		match_id: discord.Option(int, "The id of the match.(All other options are ignored when using this one)", default=None)):
+#
+#	if match_id is not None:
+#		if (await db.match.is_recorded(match_id)):
+#			return await ctx.respond(f"Match `{match_id}` is already recorded. Skipping.")
+#		else:
+#			match_info = lol.match.get_info(match_id)
+#			#if match_info["info"]["gameType"] != "CUSTOM_GAME":
+#			#	return await ctx.respond(f"Match type of `{match_id}` is {match_info['info']['gameType']}.")
+#			if match_info["info"]["gameMode"] != "CLASSIC":
+#				return await ctx.respond(f"Match mode is {match_info['info']['gameMode']}. Skipping.")
+#			elif len(match_info["metadata"]["participants"]) != 10:
+#				return await ctx.respond(f"Nr of participants is {len(match_info['metadata']['participants'])}.")
+#			else:
+#				await db.match.record(match_info)
+#				return await ctx.respond(f"Match with id `{match_id}` was recorded successfully.")
+#
+#	if user is None:
+#		user = ctx.author
+#
+#	summoner_data = await db.summoner.get_by_discord_user(user)
+#	if summoner_data is None:
+#		return await ctx.respond(f'User {user.mention} is not linked to any summoner.')
+#
+#	await ctx.defer()
+#	match_ids = lol.match.get_id_list(summoner_data['puuid'], match_start, match_count)
+#	if len(match_ids) == 0:
+#		return await ctx.followup.send(f"No matches were found for summoner `{summoner_data['name']}`.")
+#	recorded_games = 0
+#	for match_id in match_ids:
+#		if (await db.match.is_recorded(match_id)):
+#			print("Match is already recorded. Skipping.")
+#		else:
+#			match_info = lol.match.get_info(match_id)
+#			#if match_info["info"]["gameType"] != "CUSTOM_GAME":
+#			#	print(f"Match type is {match_info['info']['gameType']}. Skipping.")
+#			if match_info["info"]["gameMode"] != "CLASSIC":
+#				print(f"Match mode is {match_info['info']['gameMode']}. Skipping.")
+#			elif len(match_info["metadata"]["participants"]) != 10:
+#				print(f"Nr of participants is {len(match_info['metadata']['participants'])}. Skipping.")
+#			else:
+#				await db.match.record(match_info)
+#				recorded_games = recorded_games + 1
+#				print(f"Match {match_id} recorded.")
+#	return await ctx.followup.send(f"{match_count} {'game was' if match_count == 1 else 'games were'} checked. Of those {recorded_games} {'was' if recorded_games == 1 else 'were'} new and got recorded.")
 
-	if match_id is not None:
-		if (await db.match.is_recorded(match_id)):
-			return await ctx.respond(f"Match `{match_id}` is already recorded. Skipping.")
-		else:
-			match_info = lol.match.get_info(match_id)
-			#if match_info["info"]["gameType"] != "CUSTOM_GAME":
-			#	return await ctx.respond(f"Match type of `{match_id}` is {match_info['info']['gameType']}.")
-			if match_info["info"]["gameMode"] != "CLASSIC":
-				return await ctx.respond(f"Match mode is {match_info['info']['gameMode']}. Skipping.")
-			elif len(match_info["metadata"]["participants"]) != 10:
-				return await ctx.respond(f"Nr of participants is {len(match_info['metadata']['participants'])}.")
-			else:
-				await db.match.record(match_info)
-				return await ctx.respond(f"Match with id `{match_id}` was recorded successfully.")
-
-	if user is None:
-		user = ctx.author
-
-	summoner_data = await db.summoner.get_by_discord_user(user)
-	if summoner_data is None:
-		return await ctx.respond(f'User {user.mention} is not linked to any summoner.')
-
-	await ctx.defer()
-	match_ids = lol.match.get_id_list(summoner_data['puuid'], match_start, match_count)
-	if len(match_ids) == 0:
-		return await ctx.followup.send(f"No matches were found for summoner `{summoner_data['name']}`.")
-	recorded_games = 0
-	for match_id in match_ids:
-		if (await db.match.is_recorded(match_id)):
-			print("Match is already recorded. Skipping.")
-		else:
-			match_info = lol.match.get_info(match_id)
-			#if match_info["info"]["gameType"] != "CUSTOM_GAME":
-			#	print(f"Match type is {match_info['info']['gameType']}. Skipping.")
-			if match_info["info"]["gameMode"] != "CLASSIC":
-				print(f"Match mode is {match_info['info']['gameMode']}. Skipping.")
-			elif len(match_info["metadata"]["participants"]) != 10:
-				print(f"Nr of participants is {len(match_info['metadata']['participants'])}. Skipping.")
-			else:
-				await db.match.record(match_info)
-				recorded_games = recorded_games + 1
-				print(f"Match {match_id} recorded.")
-	return await ctx.followup.send(f"{match_count} {'game was' if match_count == 1 else 'games were'} checked. Of those {recorded_games} {'was' if recorded_games == 1 else 'were'} new and got recorded.")
-'''
 
 async def list_champions(ctx: discord.AutocompleteContext):
 	return [ obj['name'] for obj in await db.select('SELECT name FROM champion WHERE name LIKE :pattern', {'pattern':'%'+ctx.value+'%'}) ]
@@ -271,11 +273,11 @@ async def winrate(ctx: discord.ApplicationContext,
 	for participant in participants:
 
 		if champion_data is not None:
-			if champion_data['id'] != participant['championId']:
+			if champion_data['id'] != participant['CHAMPION_ID']:
 				continue
 		
 		if role_id is not None:
-			if role_id != participant['teamPosition']:
+			if role_id != participant['TEAM_POSITION']:
 				continue
 
 		match_id = participant['match_id']

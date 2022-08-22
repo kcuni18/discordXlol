@@ -9,7 +9,7 @@ config.json
 ddragon_versions.json
 
 # data
-database
+database*
 database-journal
 *.json
 !config_example.json

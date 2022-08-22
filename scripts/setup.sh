@@ -3,5 +3,5 @@
 if [ ! -d ".venv" ]; then
   python -m venv .venv
 fi
-./init.sh
+./scripts/init.sh
 python -m pip install -r requirements.txt

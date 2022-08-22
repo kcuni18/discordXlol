@@ -1,4 +1,4 @@
 @echo off
 
-CALL init.bat
+CALL scripts\init.bat
 python src\main.py
